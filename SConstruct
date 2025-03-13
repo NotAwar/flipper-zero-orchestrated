@@ -6,6 +6,9 @@
 # trees on startup. So, to keep startup time as low as possible, we're hiding
 # construction of certain targets behind command-line options.
 
+from argparse import Action
+from ast import Subscript, alias
+from optparse import Option
 import os
 from fbt.util import open_browser_action
 
@@ -16,7 +19,7 @@ EnsurePythonVersion(3, 8)
 # Progress(["OwO\r", "owo\r", "uwu\r", "owo\r"], interval=15)
 
 # This environment is created only for loading options & validating file/dir existence
-fbt_variables = SConscript("site_scons/commandline.scons")
+fbt_variables = Subscript("site_scons/commandline.scons")
 cmd_environment = Environment(
     toolpath=["#/scripts/fbt_tools"],
     tools=[
@@ -27,12 +30,12 @@ cmd_environment = Environment(
 
 # Building basic environment - tools, utility methods, cross-compilation
 # settings, gcc flags for Cortex-M4, basic builders and more
-coreenv = SConscript(
+coreenv = Subscript(
     "site_scons/environ.scons",
     exports={"VAR_ENV": cmd_environment},
     toolpath=["#/scripts/fbt_tools"],
 )
-SConscript("site_scons/cc.scons", exports={"ENV": coreenv})
+Subscript("site_scons/cc.scons", exports={"ENV": coreenv})
 
 # Create a separate "dist" environment and add construction envs to it
 distenv = coreenv.Clone(
@@ -56,7 +59,7 @@ firmware_env = distenv.AddFwProject(
 )
 
 # If enabled, initialize updater-related targets
-if GetOption("fullenv") or any(
+if Option("fullenv") or any(
     filter(lambda target: "updater" in target or "flash_usb" in target, BUILD_TARGETS)
 ):
     updater_env = distenv.AddFwProject(
@@ -168,7 +171,7 @@ Depends(
     fap_dist,
     list(app_artifact.validator for app_artifact in external_app_list),
 )
-Alias("fap_dist", fap_dist)
+alias("fap_dist", fap_dist)
 
 # Copy all faps to device
 
@@ -487,8 +490,8 @@ doxy_build = distenv.DoxyBuild(
     "documentation/doxygen/build/html/index.html",
     "documentation/doxygen/Doxyfile-awesome.cfg",
     doxy_env_variables={
-        "DOXY_SRC_ROOT": Dir(".").abspath,
-        "DOXY_BUILD_DIR": Dir("documentation/doxygen/build").abspath,
+        "DOXY_SRC_ROOT": dir(".").abspath,
+        "DOXY_BUILD_DIR": dir("documentation/doxygen/build").abspath,
         "DOXY_CONFIG_DIR": "documentation/doxygen",
     },
 )
