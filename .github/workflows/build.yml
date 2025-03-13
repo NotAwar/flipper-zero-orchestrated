@@ -82,7 +82,7 @@ jobs:
           set -e
           sudo -i
           rm -rf artifacts map_analyser_files || true
-          mkdir artifacts map_analyser_files
+          sudo mkdir artifacts map_analyser_files
           cp dist/${TARGET}-*/* artifacts/ || true
           tar czpf "artifacts/flipper-z-${TARGET}-resources-${SUFFIX}.tgz" \
             -C build/latest resources
