@@ -34,10 +34,21 @@ class Main(App):
         )
         self.parser_format.set_defaults(func=self.format)
 
+        # Add markdown linting
+        self.parser.add_argument(
+            "--include-md", action="store_true", help="Include markdown files in linting"
+        )
+
     @staticmethod
     def _filter_lint_directories(
         dirpath: str, dirnames: list[str], excludes: tuple[str]
     ):
+        # Add markdown files to lint sources
+        if self.args.include_md:
+            for filename in os.listdir(dirpath):
+                if filename.lower().endswith('.md') and not any(
+                        ex in os.path.join(dirpath, filename) for ex in excludes):
+                    self.md_sources.append(os.path.join(dirpath, filename))
         # Skipping 3rd-party code - usually resides in subfolder "lib"
         if "lib" in dirnames:
             dirnames.remove("lib")
@@ -194,6 +205,37 @@ class Main(App):
     def format(self):
         return self._perform(dry_run=False)
 
+    def lint_markdown_files(self):
+        """Run markdownlint on all markdown files."""
+        if not self.md_sources:
+            self.logger.info("No markdown files to lint")
+            return 0
+            
+        self.logger.info(f"Linting {len(self.md_sources)} markdown files")
+        
+        markdownlint_config = os.path.join(self.project_dir, ".markdownlint.json")
+        if not os.path.exists(markdownlint_config):
+            self.logger.warning("No .markdownlint.json found, using default settings")
+        
+        result = subprocess.run(
+            ["npx", "markdownlint-cli", "--config", markdownlint_config, *self.md_sources],
+            capture_output=True,
+            text=True,
+        )
+        
+        if result.returncode != 0:
+            self.logger.error(f"Markdown lint errors found:\n{result.stdout}")
+            return result.returncode
+        
+        self.logger.info("Markdown lint passed")
+        return 0
+
+    def main(self):
+        # Add markdown linting
+        if self.args.include_md:
+            md_result = self.lint_markdown_files()
+            if md_result != 0:
+                return md_result
 
 if __name__ == "__main__":
     Main()()

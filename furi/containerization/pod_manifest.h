@@ -81,6 +81,30 @@ PodManifest* pod_manifest_load_from_file(const char* path);
 bool pod_manifest_validate(PodManifest* manifest);
 
 /**
+ * @brief Memory-optimized pod manifest validator
+ * Similar to 'kubectl apply --validate=true' in Kubernetes.
+ * @param manifest Pod manifest to validate
+ * @return bool true if manifest is valid
+ */
+bool pod_manifest_validate_optimized(const PodManifest* manifest);
+
+/**
+ * @brief Batch apply multiple pod manifests
+ * Similar to 'kubectl apply -f' with multiple files in Kubernetes.
+ * @param manifests Array of pod manifests
+ * @param count Number of manifests in array
+ * @return int Number of successfully applied manifests
+ */
+int pod_manifest_batch_apply(PodManifest** manifests, size_t count);
+
+/**
+ * @brief Create a memory-efficient pod manifest from JSON
+ * @param json_data JSON string containing manifest data
+ * @return PodManifest* Newly created pod manifest or NULL on failure
+ */
+PodManifest* pod_manifest_create_from_json(const char* json_data);
+
+/**
  * @brief Free a pod manifest
  * 
  * @param manifest 
@@ -127,6 +151,42 @@ uint32_t pod_manifest_get_containers(
 Container** pod_manifest_instantiate(
     ContainerRuntime* runtime,
     const PodManifest* manifest);
+
+/**
+ * @brief Apply a ConfigMap to a pod manifest
+ * 
+ * Updates environment variables and volume mounts in the pod
+ * based on a configuration map, similar to K8s ConfigMaps.
+ * 
+ * @param manifest The pod manifest to update
+ * @param config_map The configuration map to apply
+ * @return bool true if successful
+ */
+bool pod_manifest_apply_config_map(PodManifest* manifest, const ConfigMap* config_map);
+
+/**
+ * @brief Apply resource quotas to a pod
+ * 
+ * Enforces resource limits defined in a resource quota,
+ * similar to K8s ResourceQuotas.
+ * 
+ * @param manifest The pod manifest to update
+ * @param quota The resource quota to apply
+ * @return bool true if successful
+ */
+bool pod_manifest_apply_resource_quota(PodManifest* manifest, const ResourceQuota* quota);
+
+/**
+ * @brief Convert a pod manifest to JSON
+ * 
+ * Serializes a pod manifest to JSON format,
+ * similar to 'kubectl get pod -o json'.
+ * 
+ * @param manifest The pod manifest to convert
+ * @param pretty Whether to format the JSON for readability
+ * @return char* JSON string (must be freed by caller)
+ */
+char* pod_manifest_to_json(const PodManifest* manifest, bool pretty);
 
 #ifdef __cplusplus
 }

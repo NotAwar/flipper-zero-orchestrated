@@ -1,41 +1,71 @@
-# Lightweight Application Containers for Flipper Zero
+# Flipper Zero Containerization System
 
-## Overview
+The containerization system for Flipper Zero provides a minimal-overhead way to run and manage applications
+in a resource-efficient manner. This system draws inspiration from container orchestration systems like 
+Kubernetes but is specifically designed for the highly constrained microcontroller environment.
 
-The containerization system for Flipper Zero provides a minimal-overhead way to run and manage applications in a resource-efficient manner. This system draws inspiration from container orchestration systems like Kubernetes but is specifically designed for the highly constrained microcontroller environment.
+## Architecture
 
-## Technical Specifications
+The system consists of the following key components:
 
-This system is designed with the Flipper Zero's limited resources in mind:
-- STM32WB55 MCU with ARM Cortex-M4 core (64 MHz)
-- 1MB Flash memory
-- 256KB RAM
+- **Container Runtime**: Manages container lifecycle (create, start, stop, destroy)
+- **Pod Manifest**: Defines container groups and their configurations
+- **Service Registry**: Provides lightweight service discovery for inter-container communication
+- **Resource Manager**: Enforces memory and CPU limits for containers
 
-## Core Components
+## Performance Optimizations
 
-### Container Runtime
+The containerization system implements several critical optimizations for resource-constrained environments:
 
-The container runtime manages application lifecycles:
-- Starting/stopping applications
-- Basic resource monitoring
-- Auto-restart capabilities
+- **Memory Pooling**: Containers reuse memory from a pre-allocated pool instead of frequent malloc/free
+- **Hash-Based Service Lookups**: O(1) service discovery with hash-based optimization
+- **Lazy Loading**: Resources are loaded only when needed to minimize memory footprint
+- **Zero-Copy IPC**: Communication between containers uses shared memory references when possible
 
-### Service Registry
+## Usage Examples
 
-A lightweight service discovery mechanism:
-- Registration of internal and external services
-- Service lookup by name and namespace
-- Connection facilitation
+### Creating a Simple Container
 
-### Pod Manifests
+```c
+// Create a pod manifest
+PodManifest* manifest = pod_manifest_create();
+manifest->name = "my-app";
+manifest->container_count = 1;
+manifest->containers[0].name = "main";
+manifest->containers[0].entry_point = my_app_main;
 
-Declarative application definitions:
-- Compact manifest format (not JSON, more efficient)
-- Multi-container pod support
-- Resource specifications
-- Health check definitions (optional)
+// Start the container
+ContainerRuntime* runtime = container_runtime_get_instance();
+container_runtime_start(runtime, manifest);
+```
 
-## CLI Commands
+### Service Registration and Discovery
 
-Access container functionality through the command line:
+```c
+// Register a service
+ServiceRegistry* registry = service_registry_get_instance();
+MyService* my_service = my_service_create();
+service_registry_register(registry, "my-service", my_service);
+
+// Discover a service
+MyService* service = service_registry_get_service(registry, "my-service");
+if(service) {
+    my_service_call_method(service);
+}
+```
+
+## Best Practices
+
+1. Always specify resource limits in pod manifests
+2. Keep container count low - optimal performance with 3-5 containers
+3. Use service registry for interface discovery rather than direct references
+4. Implement graceful shutdown in containers to prevent resource leaks
+5. Prefer static allocation over dynamic when possible
+
+## Future Improvements
+
+- Container networking with virtual interfaces
+- Volume mounts for shared persistent storage
+- Container health checks and self-healing
+- Configuration maps for environment variables
 
