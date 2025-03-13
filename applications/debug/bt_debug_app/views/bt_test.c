@@ -73,7 +73,7 @@ static void bt_test_draw_callback(Canvas* canvas, void* _model) {
             uint8_t param_text_y = param_y + param_height - 4;
 
             if(position == model->position) {
-                canvas_set_color(canvas, ColorBlack);
+                canvas_set_(canvas, ColorBlack);
                 elements_slightly_rounded_box(
                     canvas, 0, param_y + 1, param_width, param_height - 2);
                 canvas_set_color(canvas, ColorWhite);
