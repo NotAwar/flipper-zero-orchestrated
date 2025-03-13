@@ -17,11 +17,9 @@ jobs:
   analyse_c_cpp:
     if: ${{ !github.event.pull_request.head.repo.fork }}
     runs-on: ubuntu-latest
-    container:
-      options: --user root
     steps:
       - name: 'Wipe workspace'
-        run: find ./ -mount -maxdepth 1 -exec rm -rf {} \;
+        run: sudo find ./ -mount -maxdepth 1 -exec rm -rf {} \;
 
       - name: 'Checkout code'
         uses: actions/checkout@v4
@@ -32,6 +30,8 @@ jobs:
       - name: 'Get commit details'
         id: names
         run: |
+          set -e
+          sudo -i
           if [[ ${{ github.event_name }} == 'pull_request' ]]; then
             TYPE="pull"
           elif [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
@@ -43,11 +43,15 @@ jobs:
 
       - name: 'Supply PVS credentials'
         run: |
+          set -e
+          sudo -i
           pvs-studio-analyzer credentials ${{ secrets.PVS_STUDIO_CREDENTIALS }}
 
       - name: 'Convert PVS-Studio output to html and detect warnings'
         id: pvs-warn
         run: |
+          set -e
+          sudo -i
           WARNINGS=0
           ./fbt COMPACT=1 PVSNOBROWSER=1 firmware_pvs || WARNINGS=1
           echo "warnings=${WARNINGS}" >> $GITHUB_OUTPUT
@@ -89,6 +93,10 @@ jobs:
       - name: 'Raise exception'
         if: ${{ steps.pvs-warn.outputs.warnings != 0 }}
         run: |
+        
+          set -e
+          sudo -i
+          
           echo "Please fix all PVS warnings before merge"
           echo "Report: ${{ steps.pvs-warn.outputs.report-url }}"
           echo "[PVS report](${{ steps.pvs-warn.outputs.report-url }})" >> $GITHUB_STEP_SUMMARY

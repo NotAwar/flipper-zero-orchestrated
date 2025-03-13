@@ -31,6 +31,7 @@ jobs:
 
       - name: 'Get commit details'
         run: |
+          sudo -i
           if [[ ${{ github.event_name }} == 'pull_request' ]]; then
             TYPE="pull"
           elif [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
@@ -44,6 +45,7 @@ jobs:
         id: build-fw
         run: |
           set -e
+          sudo -i
           TARGET="$(echo '${{ matrix.target }}' | sed 's/f//')"; \
           ./fbt TARGET_HW=$TARGET DEBUG=0 COMPACT=1 fap_dist updater_package
           echo "sdk-file=$(ls dist/${{ matrix.target }}-*/flipper-z-${{ matrix.target }}-sdk-*.zip)" >> $GITHUB_OUTPUT
@@ -58,6 +60,8 @@ jobs:
 
       - name: Build test app with SDK
         run: |
+          set -e
+          sudo -i
           mkdir testapp
           cd testapp
           ufbt create APPID=testapp
@@ -65,6 +69,8 @@ jobs:
 
       - name: Build example & external apps with uFBT
         run: |
+          set -e
+          sudo -i
           for appdir in 'applications/examples'; do
             for app in $(find "$appdir" -maxdepth 1 -mindepth 1 -type d); do
               pushd $app
@@ -86,7 +92,5 @@ jobs:
 #    needs: [compact]
 #    if: always() && !contains(needs.*.result, 'failure')
 #    runs-on: ubuntu-latest
-    #  container:
-    #   options: --user root
     # steps:
     #   - run: echo "All good ✨" ;

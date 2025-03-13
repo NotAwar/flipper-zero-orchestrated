@@ -12,8 +12,6 @@ permissions: write-all
 jobs:
   run_units_on_bench:
     runs-on: ubuntu-latest
-    container:
-      options: --user root
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,6 +24,9 @@ jobs:
         if: success()
         timeout-minutes: 10
         run: |
+        
+          set -e
+          sudo -i
           source scripts/toolchain/fbtenv.sh
           ./fbt resources firmware_latest flash LIB_DEBUG=1 FIRMWARE_APP_SET=unit_tests FORCE=1
 
@@ -35,6 +36,8 @@ jobs:
         if: steps.flashing.outcome == 'success'
         timeout-minutes: 7
         run: |
+          set -e
+          sudo -i
           source scripts/toolchain/fbtenv.sh
           python3 scripts/testops.py -t=15 await_flipper
           python3 scripts/storage.py -f send build/latest/resources /ext
@@ -47,6 +50,8 @@ jobs:
         if: steps.copy.outcome == 'success'
         timeout-minutes: 7
         run: |
+          set -e
+          sudo -i
           source scripts/toolchain/fbtenv.sh
           python3 scripts/testops.py run_units
 
@@ -60,4 +65,6 @@ jobs:
       - name: 'Check GDB output'
         if: failure() && steps.flashing.outcome == 'success'
         run: |
+          set -e
+          sudo -i
           ./fbt gdb_trace_all LIB_DEBUG=1 FIRMWARE_APP_SET=unit_tests FORCE=1

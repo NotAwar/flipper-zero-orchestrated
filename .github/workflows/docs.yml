@@ -15,8 +15,6 @@ jobs:
   check-secret:
     if: ${{ github.event.pull_request.head.repo.fork == false }}
     runs-on: ubuntu-latest
-    container:
-      options: --user root
     outputs:
       s3-valid-config: ${{ steps.check.outputs.s3-valid-config }}
 
@@ -24,6 +22,8 @@ jobs:
       - name: 'Check if S3 key exists'
         id: check
         run: |
+          set -e
+          sudo -i
           if [[ -z "${{ secrets.FW_DOCS_AWS_ACCESS_KEY }}" || -z "${{ secrets.FW_DOCS_AWS_SECRET_KEY }}" || -z "${{ secrets.FW_DOCS_AWS_BUCKET }}" ]]; then
             echo "s3-valid-config=false" >> $GITHUB_OUTPUT;
           else
@@ -33,12 +33,10 @@ jobs:
   doxygen:
     if: ${{ github.event.pull_request.head.repo.fork == false }}
     runs-on: ubuntu-latest
-    container:
-      options: --user root
     needs: check-secret
     steps:
       - name: 'Wipe workspace'
-        run: find ./ -mount -maxdepth 1 -exec rm -rf {} \;
+        run: sudo find ./ -mount -maxdepth 1 -exec rm -rf {} \;
 
       - name: 'Checkout code'
         uses: actions/checkout@v4
@@ -50,6 +48,8 @@ jobs:
       - name: 'Get commit details'
         id: names
         run: |
+          set -e
+          sudo -i
           if [[ ${{ github.event_name }} == 'pull_request' ]]; then
             TYPE="pull"
           elif [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
@@ -65,7 +65,7 @@ jobs:
           version: "1.12.0"
 
       - name: 'Generate documentation'
-        run: ./fbt doxygen
+        run: sudo ./fbt doxygen
 
       - name: 'Upload documentation'
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' && needs.check-secret.outputs.s3-valid-config == 'true' }}

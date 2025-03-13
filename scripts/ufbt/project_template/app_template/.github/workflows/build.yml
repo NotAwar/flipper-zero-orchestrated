@@ -16,8 +16,6 @@ on:
 jobs:
   ufbt-build:
     runs-on: ubuntu-latest
-    container:
-      options: --user root
     strategy:
       matrix:
         include:
