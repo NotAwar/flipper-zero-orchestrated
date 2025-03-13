@@ -10,9 +10,8 @@ env:
   TARGETS: f7
   DEFAULT_TARGET: f7
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+permissions: write-all
 jobs:
-  permissions: write-all
   check-secret:
     if: ${{ github.event.pull_request.head.repo.fork == false }}
     runs-on: ubuntu-latest

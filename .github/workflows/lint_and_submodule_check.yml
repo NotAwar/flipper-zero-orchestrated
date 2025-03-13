@@ -7,9 +7,8 @@ env:
   TARGETS: f7
   FBT_TOOLCHAIN_PATH: /runner/_work
   SET_GH_OUTPUT: 1
-
+permissions: write-all
 jobs:
-  permissions: write-all
   lint_sources_check_submodules:
     runs-on: ubuntu-latest
     steps:

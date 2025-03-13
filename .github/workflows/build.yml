@@ -13,9 +13,8 @@ env:
   FBT_TOOLCHAIN_PATH: /runner/_work
   FBT_GIT_SUBMODULE_SHALLOW: 1
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-jobs:
-  permissions: write-all
+permissions: write-all
+jobs:  
   main:
     runs-on: ubuntu-latest
     strategy:

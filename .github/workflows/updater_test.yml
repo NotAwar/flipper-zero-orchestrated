@@ -7,9 +7,9 @@ env:
   DEFAULT_TARGET: f7
   FBT_TOOLCHAIN_PATH: /opt/
   FBT_GIT_SUBMODULE_SHALLOW: 1
+permissions: write-all
 
 jobs:
-  permissions: write-all
   test_updater_on_bench:
     runs-on: ubuntu-latest
     steps:

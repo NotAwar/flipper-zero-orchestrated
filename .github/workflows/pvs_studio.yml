@@ -12,9 +12,8 @@ env:
   FBT_TOOLCHAIN_PATH: /runner/_work
   FBT_GIT_SUBMODULE_SHALLOW: 1
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+permissions: write-all
 jobs:
-  permissions: write-all
   analyse_c_cpp:
     if: ${{ !github.event.pull_request.head.repo.fork }}
     runs-on: ubuntu-latest

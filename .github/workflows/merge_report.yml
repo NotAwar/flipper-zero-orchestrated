@@ -8,9 +8,8 @@ on:
 env:
   FBT_TOOLCHAIN_PATH: /runner/_work
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+permissions: write-all
 jobs:
-  permissions: write-all
   merge_report:
     runs-on: ubuntu-latest
     steps:
