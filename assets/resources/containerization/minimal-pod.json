@@ -1,0 +1,21 @@
+Flipper Pod Manifest: 1
+Name: minimal-services
+Namespace: system
+ContainerCount: 2
+
+# Optimized for absolute minimal resource usage
+Container0: minimal-app
+Image0: /ext/apps/Tools/minimal_app.fap
+Memory0: 4096
+CPU0: 5
+Threads0: 1
+RestartOnCrash0: 1
+SystemPrivileges0: 0
+
+Container1: background-task
+Image1: /ext/apps/Tools/background_task.fap
+Memory1: 4096
+CPU1: 5
+Threads1: 1
+RestartOnCrash1: 1
+SystemPrivileges1: 0

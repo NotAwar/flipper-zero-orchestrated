@@ -1,0 +1,22 @@
+Flipper Pod Manifest: 1
+Name: system-services
+Namespace: system
+ContainerCount: 2
+
+# Storage service container
+Container0: storage-service
+Image0: /ext/apps/System/storage_svc.fap
+Memory0: 8192
+CPU0: 10
+Threads0: 1
+RestartOnCrash0: 1
+SystemPrivileges0: 1
+
+# Background task manager
+Container1: task-manager
+Image1: /ext/apps/System/task_mgr.fap
+Memory1: 8192
+CPU1: 10
+Threads1: 2
+RestartOnCrash1: 1
+SystemPrivileges1: 1

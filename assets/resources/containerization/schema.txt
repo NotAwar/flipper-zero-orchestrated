@@ -1,0 +1,16 @@
+# Flipper Container Manifest Schema
+# Ultra-minimal format to save RAM during parsing
+
+Flipper Pod Manifest: 1      # Version number
+Name: <pod_name>             # Pod name
+Namespace: <namespace>       # Namespace (default, system, etc)
+ContainerCount: <n>          # Number of containers
+
+# For each container, numbered from 0:
+Container<n>: <name>         # Container name
+Image<n>: <path>             # Path to FAP file or builtin app
+Memory<n>: <bytes>           # Memory limit in bytes (optional)
+CPU<n>: <percentage>         # CPU share percentage (optional)
+Threads<n>: <count>          # Max threads (optional)
+RestartOnCrash<n>: <0|1>     # Auto-restart policy (optional)
+SystemPrivileges<n>: <0|1>   # System privileges (optional)

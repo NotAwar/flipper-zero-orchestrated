@@ -1,0 +1,60 @@
+/**
+@page containerization Lightweight Application Containers
+
+@section containerization_overview Overview
+The containerization system for Flipper Zero provides a minimal, resource-conscious way to run applications in isolated environments. Unlike full container systems like Docker or Kubernetes, this is an extremely lightweight implementation designed specifically for microcontrollers with severe resource constraints.
+
+@section containerization_specs Resource Considerations
+- Memory: Flipper Zero has only 256KB of RAM, so containers use minimal overhead
+- Processing: With a 64MHz ARM Cortex-M4 processor, scheduling is simplified
+- Storage: Container manifests are compact to fit within flash storage constraints
+
+@section containerization_components Components
+- ContainerRuntime: Manages application lifecycle
+- ServiceRegistry: Lightweight service discovery
+- PodManifest: Application deployment definitions
+
+@section containerization_usage Usage
+Applications can be started in containers using the CLI:
+
+@code
+> kubectl start app1 /ext/apps/Tools/app.fap
+@endcode
+
+@subsection containerization_pods Pod Manifests
+Resources can be defined in pod manifest files:
+
+@code
+Flipper Pod Manifest: 1
+Name: example-pod
+Namespace: default
+ContainerCount: 1
+
+Container0: test-app
+Image0: /ext/apps/Tools/hello_world.fap
+Memory0: 4096
+CPU0: 5
+Threads0: 1
+RestartOnCrash0: 1
+SystemPrivileges0: 0
+@endcode
+
+@subsection containerization_cli CLI Commands
+The following commands are available:
+- kubectl list - List all containers
+- kubectl start <name> <image> - Start a container
+- kubectl stop <name> - Stop a container
+- kubectl apply <manifest> - Apply a pod manifest
+- kubectl health - Check health of containers
+- kubectl debug <name> - Debug a container
+
+@section containerization_api API Reference
+- @ref containerization.h - Main containerization API
+- @ref container_runtime.h - Container lifecycle management
+- @ref service_registry.h - Service discovery system
+- @ref pod_manifest.h - Pod manifest parsing and application
+
+@section containerization_examples Examples
+See example manifest files in assets/resources/containerization/.
+*/
+

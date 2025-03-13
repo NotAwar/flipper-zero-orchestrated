@@ -1,0 +1,25 @@
+Import("env")
+
+env.Append(
+    CPPPATH=[
+        "#/applications/services/cli",
+    ]
+)
+
+libenv = env.Clone(FW_LIB_NAME="cli")
+libenv.ApplyLibFlags()
+
+sources = libenv.GlobRecursive("*.c")
+
+# Check if we're building the base firmware with containerization support
+if env["IS_BASE_FIRMWARE"]:
+    libenv.Append(
+        CPPDEFINES=[
+            "CLI_CONTAINERIZATION_ENABLED",
+        ]
+    )
+
+lib = libenv.StaticLibrary("${FW_LIB_NAME}", sources)
+libenv.Install("${LIB_DIST_DIR}", lib)
+
+Return("lib")

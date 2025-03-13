@@ -1,0 +1,12 @@
+Flipper Pod Manifest: 1
+Name: minimal-test
+Namespace: default
+ContainerCount: 1
+
+Container0: test-app
+Image0: /ext/apps/Tools/hello_world.fap
+Memory0: 4096
+CPU0: 5
+Threads0: 1
+RestartOnCrash0: 1
+SystemPrivileges0: 0

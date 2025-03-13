@@ -1,0 +1,22 @@
+Flipper Pod Manifest: 1
+Name: infrared-subghz-pod
+Namespace: default
+ContainerCount: 2
+
+# First container - SubGhz worker
+Container0: subghz-worker
+Image0: /ext/apps/Tools/subghz_test.fap
+Memory0: 16384
+CPU0: 25
+Threads0: 2
+RestartOnCrash0: 1
+SystemPrivileges0: 0
+
+# Second container - Infrared worker
+Container1: infrared-worker
+Image1: /ext/apps/Tools/ir_test.fap
+Memory1: 16384
+CPU1: 25
+Threads1: 2
+RestartOnCrash1: 1
+SystemPrivileges1: 0

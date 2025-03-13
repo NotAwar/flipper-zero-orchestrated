@@ -1,0 +1,13 @@
+Flipper Pod Manifest: 1
+Name: test-services
+Namespace: system
+ContainerCount: 1
+
+# Ultra-minimal test container
+Container0: test-container
+Image0: Settings
+Memory0: 2048
+CPU0: 3
+Threads0: 1
+RestartOnCrash0: 1
+SystemPrivileges0: 0
