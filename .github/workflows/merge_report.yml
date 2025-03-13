@@ -33,7 +33,7 @@ jobs:
           else
             TYPE="other"
           fi
-          python3 scripts/get_env.py "--event_file=${{ github.event_path }}" "--type=$TYPE" || cat "${{ github.event_path }}"
+          sudo python3 scripts/get_env.py "--event_file=${{ github.event_path }}" "--type=$TYPE" || cat "${{ github.event_path }}"
 
       - name: 'Check ticket and report'
         run: |
@@ -41,7 +41,7 @@ jobs:
           sudo -i
           source scripts/toolchain/fbtenv.sh
           python3 -m pip install slack_sdk
-          python3 scripts/merge_report_qa.py \
+          sudo python3 scripts/merge_report_qa.py \
               ${{ secrets.QA_REPORT_SLACK_TOKEN }} \
               ${{ secrets.QA_REPORT_SLACK_CHANNEL }}
 

@@ -45,7 +45,7 @@ jobs:
           else
             TYPE="other"
           fi
-          python3 scripts/get_env.py "--event_file=${{ github.event_path }}" "--type=$TYPE" || cat "${{ github.event_path }}"
+          sudo python3 scripts/get_env.py "--event_file=${{ github.event_path }}" "--type=$TYPE" || cat "${{ github.event_path }}"
           echo "event_type=$TYPE" >> $GITHUB_OUTPUT
           echo "FBT_BUILD_TYPE=$BUILD_TYPE" >> $GITHUB_ENV
           echo "TARGET=${{ matrix.target }}" >> $GITHUB_ENV
@@ -83,7 +83,7 @@ jobs:
           sudo -i
           rm -rf artifacts map_analyser_files || true
           sudo mkdir artifacts map_analyser_files
-          cp dist/${TARGET}-*/* artifacts/ || true
+          sudo cp dist/${TARGET}-*/* artifacts/ || true
           tar czpf "artifacts/flipper-z-${TARGET}-resources-${SUFFIX}.tgz" \
             -C build/latest resources
           tar czpf "artifacts/flipper-z-${TARGET}-debugapps-${SUFFIX}.tgz" \
@@ -97,7 +97,7 @@ jobs:
           set -e
           sudo -i
           tar czpf "artifacts/flipper-z-any-scripts-${SUFFIX}.tgz" scripts
-          cp build/core2_firmware.tgz "artifacts/flipper-z-any-core2_firmware-${SUFFIX}.tgz"
+          sudo cp build/core2_firmware.tgz "artifacts/flipper-z-any-core2_firmware-${SUFFIX}.tgz"
 
       - name: 'Upload artifacts to update server'
         if: ${{ !github.event.pull_request.head.repo.fork }}
@@ -105,7 +105,7 @@ jobs:
           set -e
           sudo -i
           FILES=$(for ARTIFACT in $(find artifacts -maxdepth 1 -not -type d); do echo "-F files=@${ARTIFACT}"; done)
-          curl --fail -L -H "Token: ${{ secrets.INDEXER_TOKEN }}" \
+          sudo curl --fail -L -H "Token: ${{ secrets.INDEXER_TOKEN }}" \
               -F "branch=${BRANCH_NAME}" \
               -F "version_token=${COMMIT_SHA}" \
               ${FILES[@]} \
@@ -116,14 +116,15 @@ jobs:
         run: |
           set -e
           sudo -i
-          cp build/${DEFAULT_TARGET}-firmware-*/firmware.elf.map map_analyser_files/firmware.elf.map
-          cp build/${DEFAULT_TARGET}-firmware-*/firmware.elf map_analyser_files/firmware.elf
+          sudo cp build/${DEFAULT_TARGET}-firmware-*/firmware.elf.map map_analyser_files/firmware.elf.map
+          sudo cp build/${DEFAULT_TARGET}-firmware-*/firmware.elf map_analyser_files/firmware.elf
           source scripts/toolchain/fbtenv.sh
           python3 scripts/map_analyse_upload.py \
               "--elf_file=map_analyser_files/firmware.elf" \
               "--map_file=map_analyser_files/firmware.elf.map" \
               "--analyser_url=${{ secrets.ANALYSER_URL }}" \
               "--analyser_token=${{ secrets.ANALYSER_TOKEN }}";
+          echo "Map analysis complete."
 
       - name: 'Find previous comment'
         if: ${{ !github.event.pull_request.head.repo.fork && matrix.target == env.DEFAULT_TARGET && github.event.pull_request }}
