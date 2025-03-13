@@ -5,6 +5,7 @@ on:
     types: [prereleased, released]
 
 jobs:
+  permissions: write-all
   reindex:
     name: 'Post-release hooks'
     runs-on: ubuntu-latest

@@ -9,6 +9,7 @@ env:
   FBT_GIT_SUBMODULE_SHALLOW: 1
 
 jobs:
+  permissions: write-all
   run_units_on_bench:
     runs-on: ubuntu-latest
     steps:

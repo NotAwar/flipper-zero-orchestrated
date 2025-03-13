@@ -9,6 +9,7 @@ env:
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
+  permissions: write-all
   compact:
     runs-on: ubuntu-latest
     strategy:

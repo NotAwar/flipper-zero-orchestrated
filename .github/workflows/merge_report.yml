@@ -10,6 +10,7 @@ env:
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
+  permissions: write-all
   merge_report:
     runs-on: ubuntu-latest
     steps:
