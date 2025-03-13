@@ -3,7 +3,7 @@ name: 'Check FL ticket in PR name'
 on:
   push:
     branches:
-      - dev
+      - main
 
 env:
   FBT_TOOLCHAIN_PATH: /runner/_work
