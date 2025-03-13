@@ -12,6 +12,8 @@ permissions: write-all
 jobs:
   merge_report:
     runs-on: ubuntu-latest
+    container:
+      options: --user root
     steps:
       - name: 'Wipe workspace'
         run: find ./ -mount -maxdepth 1 -exec rm -rf {} \;

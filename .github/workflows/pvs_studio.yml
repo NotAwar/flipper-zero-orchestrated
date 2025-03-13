@@ -17,6 +17,8 @@ jobs:
   analyse_c_cpp:
     if: ${{ !github.event.pull_request.head.repo.fork }}
     runs-on: ubuntu-latest
+    container:
+      options: --user root
     steps:
       - name: 'Wipe workspace'
         run: find ./ -mount -maxdepth 1 -exec rm -rf {} \;

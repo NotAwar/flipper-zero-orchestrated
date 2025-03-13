@@ -11,6 +11,8 @@ permissions: write-all
 jobs:
   lint_sources_check_submodules:
     runs-on: ubuntu-latest
+    container:
+      options: --user root
     steps:
       - name: 'Wipe workspace'
         run: find ./ -mount -maxdepth 1 -exec rm -rf {} \;

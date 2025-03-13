@@ -15,6 +15,8 @@ jobs:
   check-secret:
     if: ${{ github.event.pull_request.head.repo.fork == false }}
     runs-on: ubuntu-latest
+    container:
+      options: --user root
     outputs:
       s3-valid-config: ${{ steps.check.outputs.s3-valid-config }}
 
@@ -31,6 +33,8 @@ jobs:
   doxygen:
     if: ${{ github.event.pull_request.head.repo.fork == false }}
     runs-on: ubuntu-latest
+    container:
+      options: --user root
     needs: check-secret
     steps:
       - name: 'Wipe workspace'

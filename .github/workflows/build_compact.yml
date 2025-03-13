@@ -12,6 +12,8 @@ permissions: write-all
 jobs:
   compact:
     runs-on: ubuntu-latest
+    container:
+      options: --user root
     strategy:
       fail-fast: false
       matrix:
@@ -84,5 +86,7 @@ jobs:
 #    needs: [compact]
 #    if: always() && !contains(needs.*.result, 'failure')
 #    runs-on: ubuntu-latest
-#    steps:
-#      - run: echo "All good ✨" ;
+    #  container:
+    #   options: --user root
+    # steps:
+    #   - run: echo "All good ✨" ;
