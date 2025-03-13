@@ -394,7 +394,21 @@ distenv.PhonyTarget(
     IMG_LINT_SOURCES=firmware_env["IMG_LINT_SOURCES"],
 )
 
-distenv.Alias("lint_all", ["lint", "lint_py", "lint_img"])
+# Markdown Linting
+distenv.AddTarget(
+    name="lint_md",
+    dependencies=[],
+    actions=[
+        Action(
+            "${PYTHON3} ${FBT_SCRIPT_DIR}/lint.py markdown ${ARGS}",
+            "${LINT_MD_COMSTR}",
+        )
+    ],
+    LINT_MD_COMSTR="${BF}Running Markdown linter${NC}",
+)
+
+distenv.Alias("lint_all", ["lint", "lint_py", "lint_img", "lint_md"])
+
 distenv.Alias("format_all", ["format", "format_py", "format_img"])
 
 

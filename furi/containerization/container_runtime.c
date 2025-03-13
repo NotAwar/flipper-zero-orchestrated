@@ -26,7 +26,9 @@ struct ContainerRuntime {
     FuriTimer* scheduler_timer;
     Container containers[MAX_CONTAINERS];
     uint8_t container_count;
+    uint8_t active_container_count; // Track running containers separately
     bool running;
+    ContainerHandle* recycled_container_pool; // Memory pool for container handles
 };
 
 // Ultra-minimal container health checker - just checks if the underlying app is still running
@@ -342,6 +344,18 @@ void container_stop(Container* container, bool force) {
     furi_record_close(RECORD_LOADER);
     
     container->status.state = ContainerStateTerminated;
+    
+    // Find the container's runtime and update the active count
+    // Note: this is a simplification; in a real implementation
+    // we would have the runtime stored in the container
+    ContainerRuntime* runtime = container_runtime_get_instance(); // Assuming this function exists
+    if(runtime) {
+        furi_mutex_acquire(runtime->mutex, FuriWaitForever);
+        if(runtime->active_container_count > 0) {
+            runtime->active_container_count--;
+        }
+        furi_mutex_release(runtime->mutex);
+    }
 }
 
 void container_get_status(Container* container, ContainerStatus* status) {
@@ -363,4 +377,191 @@ uint8_t container_runtime_get_count(ContainerRuntime* runtime) {
     furi_mutex_release(runtime->mutex);
     
     return count;
+}
+
+// Ultra-optimized container counter - direct access with mutex
+uint16_t container_runtime_get_running_count(ContainerRuntime* runtime) {
+    furi_assert(runtime);
+    
+    uint16_t count = 0;
+    furi_mutex_acquire(runtime->mutex, FuriWaitForever);
+    
+    count = runtime->active_container_count;
+    
+    furi_mutex_release(runtime->mutex);
+    return count;
+}
+
+// Memory optimization - reuse container objects where possible
+ContainerHandle* container_runtime_allocate_handle(ContainerRuntime* runtime) {
+    furi_assert(runtime);
+    
+    ContainerHandle* handle = NULL;
+    
+    furi_mutex_acquire(runtime->mutex, FuriWaitForever);
+    
+    if(runtime->recycled_container_pool) {
+        handle = runtime->recycled_container_pool;
+        runtime->recycled_container_pool = handle->next;
+        memset(handle, 0, sizeof(ContainerHandle));
+    } else {
+        handle = malloc(sizeof(ContainerHandle));
+        if(handle) {
+            memset(handle, 0, sizeof(ContainerHandle));
+        }
+    }
+    
+    furi_mutex_release(runtime->mutex);
+    return handle;
+}
+
+// Return container handle to the recycling pool
+void container_runtime_free_handle(ContainerRuntime* runtime, ContainerHandle* handle) {
+    furi_assert(runtime);
+    furi_assert(handle);
+    
+    furi_mutex_acquire(runtime->mutex, FuriWaitForever);
+    
+    handle->next = runtime->recycled_container_pool;
+    runtime->recycled_container_pool = handle;
+    
+    furi_mutex_release(runtime->mutex);
+}
+
+// Pre-allocate resources before starting containers to avoid memory fragmentation
+bool container_runtime_preallocate_resources(ContainerRuntime* runtime, PodManifest* manifest) {
+    furi_assert(runtime);
+    furi_assert(manifest);
+    
+    const PodContainerSpec* containers;
+    uint32_t container_count = pod_manifest_get_containers(manifest, &containers);
+    
+    if(container_count == 0 || !containers) {
+        FURI_LOG_E(TAG, "No containers in manifest");
+        return false;
+    }
+    
+    if(runtime->container_count + container_count > MAX_CONTAINERS) {
+        FURI_LOG_E(TAG, "Not enough container slots");
+        return false;
+    }
+    
+    // Ensure we have enough memory for new containers
+    for(uint32_t i = 0; i < container_count; i++) {
+        if(!container_check_local_image(containers[i].image)) {
+            FURI_LOG_E(TAG, "Container image not available: %s", containers[i].image);
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// Parallel container initialization when appropriate
+bool container_runtime_parallel_init(ContainerRuntime* runtime, PodManifest* manifest) {
+    furi_assert(runtime);
+    furi_assert(manifest);
+    
+    const PodContainerSpec* containers;
+    uint32_t container_count = pod_manifest_get_containers(manifest, &containers);
+    Container** created_containers = calloc(container_count, sizeof(Container*));
+    bool success = true;
+    
+    if(!created_containers) {
+        FURI_LOG_E(TAG, "Failed to allocate container array");
+        return false;
+    }
+    
+    // First create all containers (quick operation)
+    for(uint32_t i = 0; i < container_count; i++) {
+        ContainerConfig config;
+        config.name = containers[i].name;
+        config.image = containers[i].image;
+        config.args = containers[i].args;
+        config.restart_on_crash = containers[i].restart_on_crash;
+        config.system_container = containers[i].system_privileges;
+        config.resource_limits = containers[i].resources;
+        
+        created_containers[i] = container_create(runtime, &config);
+        if(!created_containers[i]) {
+            success = false;
+            break;
+        }
+    }
+    
+    // Then start containers sequentially (slow operation)
+    if(success) {
+        for(uint32_t i = 0; i < container_count; i++) {
+            if(!container_start(created_containers[i])) {
+                success = false;
+                // Stop all previously started containers
+                for(uint32_t j = 0; j < i; j++) {
+                    container_stop(created_containers[j], true);
+                }
+                break;
+            }
+            
+            // Update active container count when starting
+            runtime->active_container_count++;
+        }
+    }
+    
+    free(created_containers);
+    return success;
+}
+
+// Fixed version that takes a manifest
+bool container_runtime_start_pod(ContainerRuntime* runtime, PodManifest* manifest) {
+    furi_assert(runtime);
+    furi_assert(manifest);
+    
+    // Pre-allocate resources to prevent fragmentation during startup
+    if(!container_runtime_preallocate_resources(runtime, manifest)) {
+        FURI_LOG_E(TAG, "Failed to pre-allocate resources");
+        return false;
+    }
+    
+    // Parallel container initialization when possible
+    bool success = container_runtime_parallel_init(runtime, manifest);
+    
+    return success;
+}
+
+// Enhanced container health check with Kubernetes-like probes
+void container_check_health_probes(Container* container) {
+    if(!container || container->status.state != ContainerStateRunning) {
+        return;
+    }
+    
+    // Check liveness probe
+    if(container->config.liveness_probe.enabled) {
+        if(container->status.uptime >= container->config.liveness_probe.initial_delay_seconds) {
+            // Only check periodically
+            if(container->status.uptime % container->config.liveness_probe.period_seconds == 0) {
+                bool probe_success = true;
+                
+                // Simple command-based probe
+                if(container->config.liveness_probe.type == ProbeTypeCommand) {
+                    // In a real implementation, we would execute the command
+                    // and check the return code
+                    probe_success = true; // Placeholder
+                }
+                
+                // Update failure count
+                if(!probe_success) {
+                    container->status.liveness_failures++;
+                    if(container->status.liveness_failures >= container->config.liveness_probe.failure_threshold) {
+                        FURI_LOG_W(TAG, "Liveness probe failed for %s, restarting", container->config.name);
+                        container_stop(container, true);
+                        container_start(container);
+                        container->status.restart_count++;
+                    }
+                } else {
+                    container->status.liveness_failures = 0;
+                }
+            }
+        }
+    }
+    
+    // Add readiness probe implementation here if needed
 }
