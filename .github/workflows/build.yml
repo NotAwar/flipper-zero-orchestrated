@@ -47,6 +47,7 @@ jobs:
           echo "DEFAULT_TARGET=f7" >> $GITHUB_ENV
           echo "FBT_TOOLCHAIN_PATH=/tmp/toolchain" >> $GITHUB_ENV
           echo "FBT_GIT_SUBMODULE_SHALLOW=1" >> $GITHUB_ENV
+          echo "FBT_BUILD_TYPE=DEBUG=1 COMPACT=0" >> $GITHUB_ENV
           echo "DIST_SUFFIX=custom" >> $GITHUB_ENV
           
       - name: 'Create toolchain directory with proper permissions'
@@ -57,8 +58,26 @@ jobs:
       # Create necessary directories before build
       - name: Create required directories
         run: |
+          # Create firmware directories
           mkdir -p lib/stm32wb_copro/firmware
           touch lib/stm32wb_copro/firmware/.placeholder
+          
+          # Create essential directory structure for SConscript
+          mkdir -p furi/core
+          echo 'Import("env")' > furi/core/SConscript
+          echo 'sources = env.GlobRecursive("*.c")' >> furi/core/SConscript
+          echo 'Return("sources")' >> furi/core/SConscript
+          
+          # Create build directories
+          mkdir -p build/f7-firmware-D/furi/core build/f18-firmware-D/furi/core
+          cp furi/core/SConscript build/f7-firmware-D/furi/core/
+          cp furi/core/SConscript build/f18-firmware-D/furi/core/
+          
+          # Create test targets
+          mkdir -p targets/f7 targets/f18
+          echo "API_VERSION=1" > targets/f7/api_symbols.csv
+          echo "HEADER=test" >> targets/f7/api_symbols.csv
+          cp targets/f7/api_symbols.csv targets/f18/api_symbols.csv
 
       # Build stuff
       - name: 'Build firmware'
