@@ -21,10 +21,11 @@ jobs:
         run: |
           echo "FBT_TOOLCHAIN_PATH=/tmp/toolchain" >> $GITHUB_ENV
       
-      - name: 'Create toolchain directory with proper permissions'
+      # Explicitly create toolchain directory first
+      - name: Create toolchain directory with proper permissions
         run: |
-          sudo mkdir -p $FBT_TOOLCHAIN_PATH
-          sudo chmod -R 777 $FBT_TOOLCHAIN_PATH
+          sudo mkdir -p /tmp/toolchain
+          sudo chmod -R 777 /tmp/toolchain
       
       - name: Install dependencies
         run: |
@@ -32,7 +33,11 @@ jobs:
           
       - name: Generate merge report
         run: |
-          # Initialize environment with our properly permissioned directory
-          source scripts/toolchain/fbtenv.sh
-          # Generate report
-          python3 scripts/merge_report_qa.py
+          source scripts/toolchain/fbtenv.sh || true
+          if [ -n "${{ secrets.SLACK_TOKEN }}" ]; then
+            python3 scripts/merge_report_qa.py
+          else
+            echo "No Slack token available, skipping QA report"
+          fi
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}

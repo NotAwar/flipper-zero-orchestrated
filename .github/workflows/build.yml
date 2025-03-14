@@ -23,6 +23,23 @@ jobs:
           fetch-depth: 0
           submodules: true
 
+      # Set up required names and variables from repo and event
+      - name: Set names and variables
+        id: names
+        run: |
+          echo "DIST_SUFFIX=custom-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+          echo "SUFFIX=custom-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+          echo "branch_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "default_target=f7" >> $GITHUB_OUTPUT
+          echo "suffix=${{ env.DIST_SUFFIX }}" >> $GITHUB_OUTPUT
+          echo "commit_sha=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
+          REF_TYPE=$(echo "${{ github.ref }}" | cut -d '/' -f 2)
+          if [ "$REF_TYPE" = "tags" ]; then
+            echo "event_type=tag" >> $GITHUB_OUTPUT
+          else
+            echo "event_type=branch" >> $GITHUB_OUTPUT
+          fi
+
       # Setup environment variables
       - name: Set environment variables
         run: |
@@ -47,11 +64,12 @@ jobs:
       - name: 'Check API versions for consistency between targets'
         run: |
           N_API_HEADER_SIGNATURES=`ls -1 targets/f*/api_symbols.csv | xargs -I {} sh -c "head -n2 {} | md5sum" | sort -u | wc -l`
-          if [ "$N_API_HEADER_SIGNATURES" -ne 1 ]; then
+          if [ "$N_API_HEADER_SIGNATURES" -ne 1; then
             echo API versions aren\'t matching for available targets. Please update!
             echo "Signatures found:"
             head -n2 targets/f*/api_symbols.csv
             exit 1
+          fi
           
       - name: 'Build firmware with fbt'
         id: build-fw-with-fbt

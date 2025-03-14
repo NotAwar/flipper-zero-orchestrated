@@ -30,12 +30,12 @@ jobs:
           echo "DEFAULT_TARGET=f7" >> $GITHUB_ENV
           echo "FBT_TOOLCHAIN_PATH=/tmp/toolchain" >> $GITHUB_ENV
           echo "FBT_GIT_SUBMODULE_SHALLOW=1" >> $GITHUB_ENV
-          echo "DIST_SUFFIX=custom" >> $GITHUB_ENV
+          echo "DIST_SUFFIX=custom-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
           
       - name: 'Create toolchain directory with proper permissions'
         run: |
-          sudo mkdir -p $FBT_TOOLCHAIN_PATH
-          sudo chmod -R 777 $FBT_TOOLCHAIN_PATH
+          sudo mkdir -p /tmp/toolchain
+          sudo chmod -R 777 /tmp/toolchain
 
       # Build stuff
       - name: 'Build firmware with fbt'
