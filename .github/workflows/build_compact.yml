@@ -37,6 +37,12 @@ jobs:
           sudo mkdir -p /tmp/toolchain
           sudo chmod -R 777 /tmp/toolchain
 
+      # Create necessary directories before build
+      - name: Create required directories
+        run: |
+          mkdir -p lib/stm32wb_copro/firmware
+          touch lib/stm32wb_copro/firmware/.placeholder
+
       # Build stuff
       - name: 'Build firmware with fbt'
         id: build-fw

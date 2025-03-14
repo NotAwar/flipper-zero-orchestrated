@@ -1,0 +1,2 @@
+# This directory is required for the build process.
+# The actual firmware files will be downloaded during the build.

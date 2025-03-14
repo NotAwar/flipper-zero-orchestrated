@@ -38,7 +38,6 @@ jobs:
             echo "event_type=tag" >> $GITHUB_OUTPUT
           else
             echo "event_type=branch" >> $GITHUB_OUTPUT
-          fi
 
       # Setup environment variables
       - name: Set environment variables
@@ -53,6 +52,12 @@ jobs:
         run: |
           sudo mkdir -p $FBT_TOOLCHAIN_PATH
           sudo chmod -R 777 $FBT_TOOLCHAIN_PATH
+
+      # Create necessary directories before build
+      - name: Create required directories
+        run: |
+          mkdir -p lib/stm32wb_copro/firmware
+          touch lib/stm32wb_copro/firmware/.placeholder
 
       # Build stuff
       - name: 'Build firmware'
@@ -74,8 +79,14 @@ jobs:
       - name: 'Build firmware with fbt'
         id: build-fw-with-fbt
         run: |
-          # Use FBT_TOOLCHAIN_PATH that we've already set up with proper permissions
-          sudo ./fbt TARGET_HW=$TARGET_HW $FBT_BUILD_TYPE copro_dist updater_package fap_dist
+          # Skip copro_dist if directory doesn't exist
+          if [ -d "lib/stm32wb_copro/firmware" ]; then
+            BUILD_ARGS="TARGET_HW=$TARGET_HW $FBT_BUILD_TYPE copro_dist updater_package fap_dist"
+          else
+            BUILD_ARGS="TARGET_HW=$TARGET_HW $FBT_BUILD_TYPE updater_package fap_dist"
+            echo "Warning: Skipping copro_dist due to missing directory"
+          fi
+          sudo ./fbt $BUILD_ARGS
           echo "firmware_api=$(./fbt TARGET_HW=$TARGET_HW get_apiversion)" >> $GITHUB_OUTPUT
         shell: /usr/bin/bash -e {0}
 
