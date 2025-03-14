@@ -44,11 +44,11 @@ class Main(App):
         dirpath: str, dirnames: list[str], excludes: tuple[str]
     ):
         # Add markdown files to lint sources
-        if Self.args.include_md:
+        if self.args.include_md:
             for filename in os.listdir(dirpath):
                 if filename.lower().endswith('.md') and not any(
                         ex in os.path.join(dirpath, filename) for ex in excludes):
-                    Self.md_sources.append(os.path.join(dirpath, filename))
+                    self.md_sources.append(os.path.join(dirpath, filename))
         # Skipping 3rd-party code - usually resides in subfolder "lib"
         if "lib" in dirnames:
             dirnames.remove("lib")

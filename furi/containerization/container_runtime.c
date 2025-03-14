@@ -9,7 +9,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <check.h>
 
 #define TAG "ContainerRT"
 

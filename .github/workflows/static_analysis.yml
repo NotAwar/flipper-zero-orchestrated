@@ -1,0 +1,64 @@
+name: Static C/C++ analysis with PVS-Studio
+
+on:
+  push:
+    branches: [main, "release*", "dev*"]
+  pull_request:
+    branches: [main, "release*", "dev*"]
+  workflow_dispatch:
+
+jobs:
+  analyse_c_cpp:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Set environment variables
+        run: |
+          echo "TARGETS=f7" >> $GITHUB_ENV
+          echo "DEFAULT_TARGET=f7" >> $GITHUB_ENV
+          echo "FBT_TOOLCHAIN_PATH=/tmp/toolchain" >> $GITHUB_ENV
+          echo "FBT_GIT_SUBMODULE_SHALLOW=1" >> $GITHUB_ENV
+          echo "COMMIT_MSG=$(git log --format=%B -n 1 ${{ github.sha }})" >> $GITHUB_ENV
+          echo "COMMIT_HASH=${{ github.sha }}" >> $GITHUB_ENV
+          echo "COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+          echo "SUFFIX=main-${{ github.run_id }}-$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+          echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "DIST_SUFFIX=main-${{ github.run_id }}-$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_ENV
+          echo "WORKFLOW_BRANCH_OR_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+      
+      - name: Install PVS-Studio
+        run: |
+          wget -q -O - https://files.viva64.com/etc/pubkey.txt | sudo apt-key add -
+          sudo wget -O /etc/apt/sources.list.d/viva64.list https://files.viva64.com/etc/viva64.list
+          sudo apt-get update
+          sudo apt-get install -y pvs-studio
+      
+      - name: 'Create toolchain directory with proper permissions'
+        run: |
+          sudo mkdir -p $FBT_TOOLCHAIN_PATH
+          sudo chmod -R 777 $FBT_TOOLCHAIN_PATH
+      
+      - name: Run PVS-Studio analysis
+        run: |
+          # License activation
+          pvs-studio-analyzer credentials ${{ secrets.PVS_STUDIO_CREDENTIALS }} -o pvs-studio.lic
+          
+          # Prepare FBT environment
+          ./fbt TARGET_HW=7 proto_ver
+          
+          # Run analysis
+          pvs-studio-analyzer analyze -l pvs-studio.lic -o PVS-Studio.log
+          plog-converter -a GA:1,2 -t fullhtml PVS-Studio.log -o pvs_report
+        
+      - name: Upload PVS Studio report
+        uses: actions/upload-artifact@v3
+        with:
+          name: pvs-studio-report
+          path: pvs_report/
+          retention-days: 14

@@ -1,7 +1,7 @@
 # Flipper Zero Containerization System
 
 The containerization system for Flipper Zero provides a minimal-overhead way to run and manage applications
-in a resource-efficient manner. This system draws inspiration from container orchestration systems like
+in a resource-efficient manner. This system draws inspiration from container orchestration systems like 
 Kubernetes but is specifically designed for the highly constrained microcontroller environment.
 
 ## Architecture
@@ -68,3 +68,4 @@ if(service) {
 - Volume mounts for shared persistent storage
 - Container health checks and self-healing
 - Configuration maps for environment variables
+

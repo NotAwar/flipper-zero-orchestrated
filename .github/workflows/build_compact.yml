@@ -1,53 +1,48 @@
-name: 'Compact build'
+name: Build compact target
 
 on:
+  push:
+    branches: [main, "release*", "dev*"]
+    tags: ["*"]
   pull_request:
-
-env:
-  FBT_TOOLCHAIN_PATH: /runner/_work
-  FBT_GIT_SUBMODULE_SHALLOW: 1
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-permissions: write-all
+    branches: [main, "release*", "dev*"]
+  workflow_dispatch:
 
 jobs:
-  compact:
+  build-compact:
     runs-on: ubuntu-latest
-    container:
-      options: --user root
     strategy:
       fail-fast: false
       matrix:
         target: [f7, f18]
+
     steps:
-      - name: 'Wipe workspace'
-        run: find ./ -mount -maxdepth 1 -exec rm -rf {} \;
-
-      - name: 'Checkout code'
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 1
-          submodules: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: true
 
-      - name: 'Get commit details'
+      # Setup environment variables
+      - name: Set environment variables
         run: |
-          sudo -i
-          if [[ ${{ github.event_name }} == 'pull_request' ]]; then
-            TYPE="pull"
-          elif [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
-            TYPE="tag"
-          else
-            TYPE="other"
-          fi
-          python3 scripts/get_env.py "--event_file=${{ github.event_path }}" "--type=$TYPE" || cat "${{ github.event_path }}"
+          echo "TARGETS=${{ matrix.target }}" >> $GITHUB_ENV
+          echo "DEFAULT_TARGET=f7" >> $GITHUB_ENV
+          echo "FBT_TOOLCHAIN_PATH=/tmp/toolchain" >> $GITHUB_ENV
+          echo "FBT_GIT_SUBMODULE_SHALLOW=1" >> $GITHUB_ENV
+          echo "DIST_SUFFIX=custom" >> $GITHUB_ENV
+          
+      - name: 'Create toolchain directory with proper permissions'
+        run: |
+          sudo mkdir -p $FBT_TOOLCHAIN_PATH
+          sudo chmod -R 777 $FBT_TOOLCHAIN_PATH
 
-      - name: 'Build the firmware'
+      # Build stuff
+      - name: 'Build firmware with fbt'
         id: build-fw
         run: |
-          set -e
-          sudo -i
           TARGET="$(echo '${{ matrix.target }}' | sed 's/f//')"; \
-          ./fbt TARGET_HW=$TARGET DEBUG=0 COMPACT=1 fap_dist updater_package
+          sudo ./fbt TARGET_HW=$TARGET DEBUG=0 COMPACT=1 fap_dist updater_package
           echo "sdk-file=$(ls dist/${{ matrix.target }}-*/flipper-z-${{ matrix.target }}-sdk-*.zip)" >> $GITHUB_OUTPUT
           echo "hw-target-code=$TARGET" >> $GITHUB_OUTPUT
 

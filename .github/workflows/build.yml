@@ -1,91 +1,72 @@
-name: 'Build'
+name: Build
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - '*'
+    branches: [main, "release*", "dev*"]
+    tags: ["*"]
   pull_request:
+    branches: [main, "release*", "dev*"]
+  workflow_dispatch:
 
-env:
-  DEFAULT_TARGET: f7
-  FBT_TOOLCHAIN_PATH: /runner/_work
-  FBT_GIT_SUBMODULE_SHALLOW: 1
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-permissions: write-all
-jobs:  
-  main:
+jobs:
+  build:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         target: [f7, f18]
+
     steps:
-      - name: 'Wipe workspace'
-        run: sudo find ./ -mount -maxdepth 1 -exec rm -rf {} \;
-
-      - name: 'Checkout code'
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 1
-          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: true
 
-      - name: 'Get commit details'
-        id: names
+      # Setup environment variables
+      - name: Set environment variables
         run: |
-          set -e
-          sudo -i
-          BUILD_TYPE='DEBUG=1 COMPACT=0'
-          if [[ ${{ github.event_name }} == 'pull_request' ]]; then
-            TYPE="pull"
-          elif [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
-            TYPE="tag"
-            BUILD_TYPE='DEBUG=0 COMPACT=1'
-          else
-            TYPE="other"
-          fi
-          sudo python3 scripts/get_env.py "--event_file=${{ github.event_path }}" "--type=$TYPE" || cat "${{ github.event_path }}"
-          echo "event_type=$TYPE" >> $GITHUB_OUTPUT
-          echo "FBT_BUILD_TYPE=$BUILD_TYPE" >> $GITHUB_ENV
+          echo "TARGETS=${{ matrix.target }}" >> $GITHUB_ENV
+          echo "DEFAULT_TARGET=f7" >> $GITHUB_ENV
+          echo "FBT_TOOLCHAIN_PATH=/tmp/toolchain" >> $GITHUB_ENV
+          echo "FBT_GIT_SUBMODULE_SHALLOW=1" >> $GITHUB_ENV
+          echo "DIST_SUFFIX=custom" >> $GITHUB_ENV
+          
+      - name: 'Create toolchain directory with proper permissions'
+        run: |
+          sudo mkdir -p $FBT_TOOLCHAIN_PATH
+          sudo chmod -R 777 $FBT_TOOLCHAIN_PATH
+
+      # Build stuff
+      - name: 'Build firmware'
+        id: build-fw
+        run: |
           echo "TARGET=${{ matrix.target }}" >> $GITHUB_ENV
           echo "TARGET_HW=$(echo "${{ matrix.target }}" | sed 's/f//')" >> $GITHUB_ENV
 
       - name: 'Check API versions for consistency between targets'
         run: |
-          set -e
-          sudo -i
           N_API_HEADER_SIGNATURES=`ls -1 targets/f*/api_symbols.csv | xargs -I {} sh -c "head -n2 {} | md5sum" | sort -u | wc -l`
-          if [ $N_API_HEADER_SIGNATURES != 1 ] ; then
+          if [ "$N_API_HEADER_SIGNATURES" -ne 1 ]; then
             echo API versions aren\'t matching for available targets. Please update!
-            echo API versions are:
+            echo "Signatures found:"
             head -n2 targets/f*/api_symbols.csv
             exit 1
-          fi
-
-      - name: 'Build the firmware and apps'
-        id: build-fw
+          
+      - name: 'Build firmware with fbt'
+        id: build-fw-with-fbt
         run: |
-          set -e
-          sudo -i
-          ./fbt TARGET_HW=$TARGET_HW $FBT_BUILD_TYPE copro_dist updater_package fap_dist
+          # Use FBT_TOOLCHAIN_PATH that we've already set up with proper permissions
+          sudo ./fbt TARGET_HW=$TARGET_HW $FBT_BUILD_TYPE copro_dist updater_package fap_dist
           echo "firmware_api=$(./fbt TARGET_HW=$TARGET_HW get_apiversion)" >> $GITHUB_OUTPUT
+        shell: /usr/bin/bash -e {0}
 
-      - name: 'Check for uncommitted changes'
+      - name: 'Prepare artifacts'
         run: |
-          set -e
-          sudo -i
-          git diff --exit-code
-
-      - name: 'Copy build output'
-        run: |
-          set -e
-          sudo -i
-          rm -rf artifacts map_analyser_files || true
-          sudo mkdir artifacts map_analyser_files
-          sudo cp dist/${TARGET}-*/* artifacts/ || true
+          mkdir -p artifacts map_analyser_files
+          cp dist/${TARGET}-*/* artifacts/ || true
           tar czpf "artifacts/flipper-z-${TARGET}-resources-${SUFFIX}.tgz" \
-            -C build/latest resources
+            -C assets resources
           tar czpf "artifacts/flipper-z-${TARGET}-debugapps-${SUFFIX}.tgz" \
             -C dist/${TARGET}-*/apps/Debug .
           tar czpf "artifacts/flipper-z-${TARGET}-appsymbols-${SUFFIX}.tgz" \

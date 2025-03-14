@@ -304,6 +304,58 @@ fbtenv_print_config()
     fi
 }
 
+fbtenv_check_dir_writeable() {
+    local dir="$1"
+    if [ ! -w "$(dirname "$dir")" ]; then
+        if command -v sudo &> /dev/null; then
+            echo "Using sudo to create $dir"
+            sudo mkdir -p "$dir" || return 1
+            sudo chmod 777 "$dir" || return 1
+        else
+            echo "Cannot write to $dir and sudo is not available"
+            return 1
+        fi
+    else
+        mkdir -p "$dir" || return 1
+    fi
+    return 0
+}
+
+fbtenv_check_env_and_get_toolchain() {
+    local toolchain_package_url=$1
+    echo "Checking if downloaded toolchain tgz exists.."
+    if ! [ -f "$FBT_TOOLCHAIN_PATH/toolchain.tgz" ]; then
+        echo "no"
+        
+        # Use the directory creation helper function
+        if ! fbtenv_check_dir_writeable "$FBT_TOOLCHAIN_PATH"; then
+            return 1
+        fi
+        
+        echo "Downloading toolchain:"
+        $FBT_DOWNLOADER "$FBT_TOOLCHAIN_PATH/toolchain.tgz" "$toolchain_package_url" || return 1;
+    else
+        echo "yes"
+    fi
+    return 0;
+}
+
+fbtenv_extract_toolchain() {
+    local tgz="$FBT_TOOLCHAIN_PATH/toolchain.tgz"
+    local dist="$FBT_TOOLCHAIN_PATH/toolchain"
+    
+    echo "Extracting"
+    
+    # Make sure the toolchain directory exists and is writable
+    if ! fbtenv_check_dir_writeable "$dist"; then
+        return 1
+    fi
+    
+    mkdir -p "$dist" || return 1;
+    tar -xf "$tgz" -C "$dist" || return 1;
+    return 0;
+}
+
 fbtenv_main()
 {
     if ! fbtenv_check_if_noenv_set; then
