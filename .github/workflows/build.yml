@@ -38,6 +38,7 @@ jobs:
             echo "event_type=tag" >> $GITHUB_OUTPUT
           else
             echo "event_type=branch" >> $GITHUB_OUTPUT
+          fi
 
       # Setup environment variables
       - name: Set environment variables
