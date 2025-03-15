@@ -3,23 +3,29 @@ name: 'Post-release hooks'
 on:
   release:
     types: [prereleased, released]
+permissions: write-all
 
 jobs:
   reindex:
     name: 'Post-release hooks'
-    runs-on: [self-hosted, FlipperZeroShell]
+    runs-on: ubuntu-latest
     steps:
       - name: 'Checkout code'
         uses: actions/checkout@v4
 
       - name: 'Trigger reindex'
         run: |
+        
+          set -e
+          sudo -i
           curl --fail -L -H "Token: ${{ secrets.INDEXER_TOKEN }}" \
               "${{ secrets.INDEXER_URL }}"/firmware/reindex;
 
       - name: 'Send release notification'
         if: ${{ github.event.action == 'released' }}
         run: |
+          set -e
+          sudo -i
           echo '${{ secrets.FIREBASE_TOKEN }}' > firebase-token.json;
           python3 -m pip install firebase-admin==6.4.0;
           python3 scripts/send_firebase_notification.py \
@@ -29,4 +35,6 @@ jobs:
       - name: 'Remove firebase token'
         if: always()
         run: |
+          set -e
+          sudo -i
           rm -rf firebase-token.json;

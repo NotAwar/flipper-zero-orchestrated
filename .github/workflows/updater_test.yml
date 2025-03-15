@@ -7,10 +7,11 @@ env:
   DEFAULT_TARGET: f7
   FBT_TOOLCHAIN_PATH: /opt/
   FBT_GIT_SUBMODULE_SHALLOW: 1
+permissions: write-all
 
 jobs:
   test_updater_on_bench:
-    runs-on: [self-hosted, FlipperZeroTest ]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,6 +23,8 @@ jobs:
         id: first_full_flash
         timeout-minutes: 10
         run: |
+          set -e
+          sudo -i
           source scripts/toolchain/fbtenv.sh
           python3 scripts/testops.py -t=180 await_flipper
           ./fbt flash_usb_full FORCE=1
@@ -32,6 +35,8 @@ jobs:
         timeout-minutes: 10
         if: success()
         run: |
+          set -e
+          sudo -i
           source scripts/toolchain/fbtenv.sh
           python3 scripts/testops.py -t=180 await_flipper
           ./fbt flash_usb FORCE=1

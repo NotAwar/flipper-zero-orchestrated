@@ -26,6 +26,7 @@ runs:
     - name: Check inputs
       shell: bash
       run: |
+        sudo -i
         if [ -z "${{ inputs.catalog-url }}" ] ; then
           echo "Invalid catalog-url: ${{ inputs.catalog-url }}"
           exit 1
@@ -49,6 +50,7 @@ runs:
     - name: Submit SDK
       shell: bash
       run: |
+        sudo -i
         curl -sX 'GET' \
           '${{ inputs.catalog-url }}/api/v0/0/sdk?length=500' \
           -H 'Accept: application/json' > sdk_versions.json

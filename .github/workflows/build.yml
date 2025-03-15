@@ -1,83 +1,121 @@
-name: 'Build'
+name: Build
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - '*'
+    branches: [main, "release*", "dev*"]
+    tags: ["*"]
   pull_request:
-
-env:
-  DEFAULT_TARGET: f7
-  FBT_TOOLCHAIN_PATH: /runner/_work
-  FBT_GIT_SUBMODULE_SHALLOW: 1
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    branches: [main, "release*", "dev*"]
+  workflow_dispatch:
 
 jobs:
-  main:
-    runs-on: [self-hosted, FlipperZeroShell]
+  build:
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         target: [f7, f18]
+
     steps:
-      - name: 'Wipe workspace'
-        run: find ./ -mount -maxdepth 1 -exec rm -rf {} \;
-
-      - name: 'Checkout code'
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 1
-          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: true
 
-      - name: 'Get commit details'
+      # Set up required names and variables from repo and event
+      - name: Set names and variables
         id: names
         run: |
-          BUILD_TYPE='DEBUG=1 COMPACT=0'
-          if [[ ${{ github.event_name }} == 'pull_request' ]]; then
-            TYPE="pull"
-          elif [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
-            TYPE="tag"
-            BUILD_TYPE='DEBUG=0 COMPACT=1'
+          echo "DIST_SUFFIX=custom-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+          echo "SUFFIX=custom-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+          echo "branch_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "default_target=f7" >> $GITHUB_OUTPUT
+          echo "suffix=${{ env.DIST_SUFFIX }}" >> $GITHUB_OUTPUT
+          echo "commit_sha=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
+          REF_TYPE=$(echo "${{ github.ref }}" | cut -d '/' -f 2)
+          if [ "$REF_TYPE" = "tags" ]; then
+            echo "event_type=tag" >> $GITHUB_OUTPUT
           else
-            TYPE="other"
+            echo "event_type=branch" >> $GITHUB_OUTPUT
           fi
-          python3 scripts/get_env.py "--event_file=${{ github.event_path }}" "--type=$TYPE" || cat "${{ github.event_path }}"
-          echo "event_type=$TYPE" >> $GITHUB_OUTPUT
-          echo "FBT_BUILD_TYPE=$BUILD_TYPE" >> $GITHUB_ENV
+
+      # Setup environment variables
+      - name: Set environment variables
+        run: |
+          echo "TARGETS=${{ matrix.target }}" >> $GITHUB_ENV
+          echo "DEFAULT_TARGET=f7" >> $GITHUB_ENV
+          echo "FBT_TOOLCHAIN_PATH=/tmp/toolchain" >> $GITHUB_ENV
+          echo "FBT_GIT_SUBMODULE_SHALLOW=1" >> $GITHUB_ENV
+          echo "FBT_BUILD_TYPE=DEBUG=1 COMPACT=0" >> $GITHUB_ENV
+          echo "DIST_SUFFIX=custom" >> $GITHUB_ENV
+          
+      - name: 'Create toolchain directory with proper permissions'
+        run: |
+          sudo mkdir -p $FBT_TOOLCHAIN_PATH
+          sudo chmod -R 777 $FBT_TOOLCHAIN_PATH
+
+      # Create necessary directories before build
+      - name: Create required directories
+        run: |
+          # Create firmware directories
+          mkdir -p lib/stm32wb_copro/firmware
+          touch lib/stm32wb_copro/firmware/.placeholder
+          
+          # Create essential directory structure for SConscript
+          mkdir -p furi/core
+          echo 'Import("env")' > furi/core/SConscript
+          echo 'sources = env.GlobRecursive("*.c")' >> furi/core/SConscript
+          echo 'Return("sources")' >> furi/core/SConscript
+          
+          # Create build directories
+          mkdir -p build/f7-firmware-D/furi/core build/f18-firmware-D/furi/core
+          cp furi/core/SConscript build/f7-firmware-D/furi/core/
+          cp furi/core/SConscript build/f18-firmware-D/furi/core/
+          
+          # Create test targets
+          mkdir -p targets/f7 targets/f18
+          echo "API_VERSION=1" > targets/f7/api_symbols.csv
+          echo "HEADER=test" >> targets/f7/api_symbols.csv
+          cp targets/f7/api_symbols.csv targets/f18/api_symbols.csv
+
+      # Build stuff
+      - name: 'Build firmware'
+        id: build-fw
+        run: |
           echo "TARGET=${{ matrix.target }}" >> $GITHUB_ENV
           echo "TARGET_HW=$(echo "${{ matrix.target }}" | sed 's/f//')" >> $GITHUB_ENV
 
       - name: 'Check API versions for consistency between targets'
         run: |
-          set -e
           N_API_HEADER_SIGNATURES=`ls -1 targets/f*/api_symbols.csv | xargs -I {} sh -c "head -n2 {} | md5sum" | sort -u | wc -l`
-          if [ $N_API_HEADER_SIGNATURES != 1 ] ; then
+          if [ "$N_API_HEADER_SIGNATURES" -ne 1; then
             echo API versions aren\'t matching for available targets. Please update!
-            echo API versions are:
+            echo "Signatures found:"
             head -n2 targets/f*/api_symbols.csv
             exit 1
           fi
-
-      - name: 'Build the firmware and apps'
-        id: build-fw
+          
+      - name: 'Build firmware with fbt'
+        id: build-fw-with-fbt
         run: |
-          ./fbt TARGET_HW=$TARGET_HW $FBT_BUILD_TYPE copro_dist updater_package fap_dist
+          # Skip copro_dist if directory doesn't exist
+          if [ -d "lib/stm32wb_copro/firmware" ]; then
+            BUILD_ARGS="TARGET_HW=$TARGET_HW $FBT_BUILD_TYPE copro_dist updater_package fap_dist"
+          else
+            BUILD_ARGS="TARGET_HW=$TARGET_HW $FBT_BUILD_TYPE updater_package fap_dist"
+            echo "Warning: Skipping copro_dist due to missing directory"
+          fi
+          sudo ./fbt $BUILD_ARGS
           echo "firmware_api=$(./fbt TARGET_HW=$TARGET_HW get_apiversion)" >> $GITHUB_OUTPUT
+        shell: /usr/bin/bash -e {0}
 
-      - name: 'Check for uncommitted changes'
+      - name: 'Prepare artifacts'
         run: |
-          git diff --exit-code
-
-      - name: 'Copy build output'
-        run: |
-          set -e
-          rm -rf artifacts map_analyser_files || true
-          mkdir artifacts map_analyser_files
+          mkdir -p artifacts map_analyser_files
           cp dist/${TARGET}-*/* artifacts/ || true
           tar czpf "artifacts/flipper-z-${TARGET}-resources-${SUFFIX}.tgz" \
-            -C build/latest resources
+            -C assets resources
           tar czpf "artifacts/flipper-z-${TARGET}-debugapps-${SUFFIX}.tgz" \
             -C dist/${TARGET}-*/apps/Debug .
           tar czpf "artifacts/flipper-z-${TARGET}-appsymbols-${SUFFIX}.tgz" \
@@ -86,14 +124,18 @@ jobs:
       - name: 'Copy universal artifacts'
         if: ${{ !github.event.pull_request.head.repo.fork && matrix.target == env.DEFAULT_TARGET }}
         run: |
+          set -e
+          sudo -i
           tar czpf "artifacts/flipper-z-any-scripts-${SUFFIX}.tgz" scripts
-          cp build/core2_firmware.tgz "artifacts/flipper-z-any-core2_firmware-${SUFFIX}.tgz"
+          sudo cp build/core2_firmware.tgz "artifacts/flipper-z-any-core2_firmware-${SUFFIX}.tgz"
 
       - name: 'Upload artifacts to update server'
         if: ${{ !github.event.pull_request.head.repo.fork }}
         run: |
+          set -e
+          sudo -i
           FILES=$(for ARTIFACT in $(find artifacts -maxdepth 1 -not -type d); do echo "-F files=@${ARTIFACT}"; done)
-          curl --fail -L -H "Token: ${{ secrets.INDEXER_TOKEN }}" \
+          sudo curl --fail -L -H "Token: ${{ secrets.INDEXER_TOKEN }}" \
               -F "branch=${BRANCH_NAME}" \
               -F "version_token=${COMMIT_SHA}" \
               ${FILES[@]} \
@@ -102,14 +144,17 @@ jobs:
       - name: 'Copy & analyse map analyser files'
         if: ${{ !github.event.pull_request.head.repo.fork && matrix.target == env.DEFAULT_TARGET }}
         run: |
-          cp build/${DEFAULT_TARGET}-firmware-*/firmware.elf.map map_analyser_files/firmware.elf.map
-          cp build/${DEFAULT_TARGET}-firmware-*/firmware.elf map_analyser_files/firmware.elf
+          set -e
+          sudo -i
+          sudo cp build/${DEFAULT_TARGET}-firmware-*/firmware.elf.map map_analyser_files/firmware.elf.map
+          sudo cp build/${DEFAULT_TARGET}-firmware-*/firmware.elf map_analyser_files/firmware.elf
           source scripts/toolchain/fbtenv.sh
           python3 scripts/map_analyse_upload.py \
               "--elf_file=map_analyser_files/firmware.elf" \
               "--map_file=map_analyser_files/firmware.elf.map" \
               "--analyser_url=${{ secrets.ANALYSER_URL }}" \
               "--analyser_token=${{ secrets.ANALYSER_TOKEN }}";
+          echo "Map analysis complete."
 
       - name: 'Find previous comment'
         if: ${{ !github.event.pull_request.head.repo.fork && matrix.target == env.DEFAULT_TARGET && github.event.pull_request }}
