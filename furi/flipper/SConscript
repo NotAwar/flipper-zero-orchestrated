@@ -1,12 +1,3 @@
 Import("env")
-
 sources = env.GlobRecursive("*.c")
-
-# Create a dummy C file if no sources are found
-if not sources:
-    with open(env.subst("${BUILD_DIR}/${PROG_DIR}") + "/furi/flipper/dummy.c", "w") as f:
-        f.write('// Dummy file to ensure build works\n')
-        f.write('int flipper_dummy_function(void) { return 0; }\n')
-    sources = [env.File(env.subst("${BUILD_DIR}/${PROG_DIR}") + "/furi/flipper/dummy.c")]
-
 Return("sources")

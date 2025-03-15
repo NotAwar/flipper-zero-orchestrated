@@ -133,32 +133,10 @@ bool furi_log_level_from_string(const char* str, FuriLogLevel* level);
  * @param      format  The format
  * @param      ...     VA Args
  */
-#define FURI_LOG_E(tag, format, ...) \
-    furi_log_print_format(FuriLogLevelError, tag, format, ##__VA_ARGS__)
-#define FURI_LOG_W(tag, format, ...) \
-    furi_log_print_format(FuriLogLevelWarn, tag, format, ##__VA_ARGS__)
-#define FURI_LOG_I(tag, format, ...) \
-    furi_log_print_format(FuriLogLevelInfo, tag, format, ##__VA_ARGS__)
-#define FURI_LOG_D(tag, format, ...) \
-    furi_log_print_format(FuriLogLevelDebug, tag, format, ##__VA_ARGS__)
-#define FURI_LOG_T(tag, format, ...) \
-    furi_log_print_format(FuriLogLevelTrace, tag, format, ##__VA_ARGS__)
-
-/** Log methods
- *
- * @param      format  The raw format 
- * @param      ...     VA Args
- */
-#define FURI_LOG_RAW_E(format, ...) \
-    furi_log_print_raw_format(FuriLogLevelError, format, ##__VA_ARGS__)
-#define FURI_LOG_RAW_W(format, ...) \
-    furi_log_print_raw_format(FuriLogLevelWarn, format, ##__VA_ARGS__)
-#define FURI_LOG_RAW_I(format, ...) \
-    furi_log_print_raw_format(FuriLogLevelInfo, format, ##__VA_ARGS__)
-#define FURI_LOG_RAW_D(format, ...) \
-    furi_log_print_raw_format(FuriLogLevelDebug, format, ##__VA_ARGS__)
-#define FURI_LOG_RAW_T(format, ...) \
-    furi_log_print_raw_format(FuriLogLevelTrace, format, ##__VA_ARGS__)
+#define FURI_LOG_E(tag, format, ...) printf("[E][%s] " format "\r\n", tag, ##__VA_ARGS__)
+#define FURI_LOG_W(tag, format, ...) printf("[W][%s] " format "\r\n", tag, ##__VA_ARGS__)
+#define FURI_LOG_I(tag, format, ...) printf("[I][%s] " format "\r\n", tag, ##__VA_ARGS__)
+#define FURI_LOG_D(tag, format, ...) printf("[D][%s] " format "\r\n", tag, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 }

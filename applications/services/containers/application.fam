@@ -1,0 +1,14 @@
+App(
+    appid="container_test",
+    name="Container Test",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="container_test_app",
+    requires=["gui"],
+    stack_size=2 * 1024,
+    order=30,
+    fap_icon="containerization_10px.png",
+    fap_category="Tools",
+    fap_author="Flipper Devices",
+    fap_version=(0, 1),
+    fap_description="Container Runtime Test Application",
+)

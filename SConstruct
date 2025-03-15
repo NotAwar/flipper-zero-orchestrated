@@ -395,16 +395,14 @@ distenv.PhonyTarget(
 )
 
 # Markdown Linting
-distenv.AddTarget(
-    name="lint_md",
-    dependencies=[],
-    actions=[
-        Action(
-            "${PYTHON3} ${FBT_SCRIPT_DIR}/lint.py markdown ${ARGS}",
-            "${LINT_MD_COMSTR}",
-        )
-    ],
-    LINT_MD_COMSTR="${BF}Running Markdown linter${NC}",
+# Replace the AddTarget call with a standard SCons Alias
+distenv.Alias(
+    "lint_md",
+    distenv.Command(
+        "build/lint_md.flag",
+        [],
+        "${PYTHON3} ${FBT_SCRIPT_DIR}/lint.py markdown ${ARGS}",
+    ),
 )
 
 distenv.Alias("lint_all", ["lint", "lint_py", "lint_img", "lint_md"])

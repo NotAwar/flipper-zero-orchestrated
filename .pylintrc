@@ -1,0 +1,11 @@
+[MASTER]
+# SCons-specific configuration
+ignore=site_scons
+
+[MESSAGES CONTROL]
+# Disable common SCons-related warnings
+disable=undefined-variable
+
+[TYPECHECK]
+# Add SCons-specific type ignores
+ignored-classes=SCons,SConscript,Environment
