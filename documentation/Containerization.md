@@ -21,6 +21,21 @@ The containerization system implements several critical optimizations for resour
 - **Hash-Based Service Lookups**: O(1) service discovery with hash-based optimization
 - **Lazy Loading**: Resources are loaded only when needed to minimize memory footprint
 - **Zero-Copy IPC**: Communication between containers uses shared memory references when possible
+- **Static Pre-allocation**: Critical resources are pre-allocated to avoid heap fragmentation
+- **Scheduled Health Checks**: Health checks are performed at timed intervals, not continuously
+
+## Resource Constraints
+
+Flipper Zero has extremely limited resources compared to typical container environments:
+
+| Resource | Limit | Notes |
+|----------|-------|-------|
+| RAM | ~256KB | Shared between system and all containers |
+| CPU | 64MHz | ARM Cortex-M4 |
+| Storage | ~2MB | Available for all container images |
+| Power | Battery | Energy efficiency is critical |
+
+Containers must be designed with these constraints in mind. Typical containers use 2-10KB of RAM.
 
 ## Usage Examples
 
@@ -56,16 +71,21 @@ if(service) {
 
 ## Best Practices
 
-1. Always specify resource limits in pod manifests
-2. Keep container count low - optimal performance with 3-5 containers
-3. Use service registry for interface discovery rather than direct references
-4. Implement graceful shutdown in containers to prevent resource leaks
-5. Prefer static allocation over dynamic when possible
+1. **Resource Planning**: Always specify reasonable resource limits in pod manifests
+2. **Container Count**: Keep container count very low - optimal performance with 2-3 containers
+3. **Service Discovery**: Use service registry for interface discovery rather than direct references
+4. **Static Allocation**: Prefer static allocation over dynamic whenever possible
+5. **Lazy Initialization**: Initialize resources only when needed, not at startup
+6. **Garbage Collection**: Implement proper cleanup to prevent memory leaks
+7. **Health Checks**: Use periodic health checks with reasonable intervals (5-10s)
+8. **Namespaces**: Organize services into namespaces for better isolation
+9. **Minimal Containers**: Keep container images as small as possible
 
 ## Future Improvements
 
+- Resource quotas at namespace level
 - Container networking with virtual interfaces
 - Volume mounts for shared persistent storage
-- Container health checks and self-healing
+- Improved health checks and self-healing mechanisms
 - Configuration maps for environment variables
 

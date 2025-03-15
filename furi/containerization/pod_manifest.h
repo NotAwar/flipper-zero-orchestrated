@@ -89,6 +89,46 @@ bool pod_manifest_validate(PodManifest* manifest);
 bool pod_manifest_validate_optimized(const PodManifest* manifest);
 
 /**
+ * @brief Pod manifest validator with resource constraints check
+ * 
+ * Validates that required resources are available and pod can be scheduled.
+ * Similar to Kubernetes admission controllers.
+ * 
+ * @param manifest Pod manifest to validate
+ * @param runtime Container runtime for resource checks
+ * @return bool true if manifest is valid and can be scheduled
+ */
+bool pod_manifest_validate_resources(const PodManifest* manifest, ContainerRuntime* runtime);
+
+/**
+ * @brief Apply taints and tolerations to pod scheduling
+ * 
+ * Controls which pods can run on particular nodes/apps,
+ * similar to Kubernetes taints and tolerations.
+ * 
+ * @param manifest The pod manifest to update
+ * @param taints Array of taint specifications
+ * @param taint_count Number of taints in array
+ * @return bool true if successful
+ */
+bool pod_manifest_apply_taints(PodManifest* manifest, const PodTaint* taints, size_t taint_count);
+
+/**
+ * @brief Memory-optimized pod manifest loading
+ * 
+ * Uses streaming JSON parser to minimize memory usage while loading manifests.
+ * 
+ * @param path Path to manifest file
+ * @param buffer Working buffer for parsing
+ * @param buffer_size Size of working buffer
+ * @return PodManifest* Newly created pod manifest or NULL on failure 
+ */
+PodManifest* pod_manifest_load_from_file_buffered(
+    const char* path, 
+    char* buffer, 
+    size_t buffer_size);
+
+/**
  * @brief Batch apply multiple pod manifests
  * Similar to 'kubectl apply -f' with multiple files in Kubernetes.
  * @param manifests Array of pod manifests

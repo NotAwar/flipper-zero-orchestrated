@@ -7,12 +7,21 @@
 
 #define TAG "SvcRegistry"
 
+typedef struct ServiceLabel {
+    const char* key;
+    const char* value;
+    struct ServiceLabel* next;
+} ServiceLabel;
+
 typedef struct ServiceEntry {
     const char* name;
     uint32_t name_hash;
     void* impl;
     struct ServiceEntry* next;
     uint8_t service_count;
+    ServiceLabel* labels;  // Add labels for kubernetes-like selectors
+    const char* namespace; // Add namespace support
+    uint32_t creation_timestamp;
 } ServiceEntry;
 
 struct ServiceRegistry {
@@ -50,6 +59,19 @@ void service_registry_free(ServiceRegistry* registry) {
         
         // Free string in entry
         free((void*)current->name);
+        
+        // Free labels
+        ServiceLabel* label = current->labels;
+        while(label) {
+            ServiceLabel* next_label = label->next;
+            free((void*)label->key);
+            free((void*)label->value);
+            free(label);
+            label = next_label;
+        }
+        
+        // Free namespace
+        free((void*)current->namespace);
         
         // Free entry
         free(current);
@@ -126,6 +148,77 @@ bool service_registry_register(ServiceRegistry* registry, const char* service_na
     return result;
 }
 
+// Optimized service registration with label support
+bool service_registry_register_with_labels(
+    ServiceRegistry* registry, 
+    const char* service_name,
+    void* service_impl,
+    const char* namespace,
+    ServiceLabel* labels) {
+    
+    furi_assert(registry);
+    furi_assert(service_name);
+    furi_assert(service_impl);
+    
+    bool result = false;
+    
+    // Use hash-based lookup for O(1) performance instead of string comparison
+    uint32_t name_hash = service_registry_hash_name(service_name);
+    
+    furi_mutex_acquire(registry->mutex, FuriWaitForever);
+    
+    // Check if service already exists using hash for faster lookup
+    ServiceEntry* existing = service_registry_find_by_hash(registry, name_hash);
+    if(existing && strcmp(existing->name, service_name) == 0) {
+        FURI_LOG_W(TAG, "Service %s already registered", service_name);
+        furi_mutex_release(registry->mutex);
+        return false;
+    }
+    
+    // Allocate new service entry
+    ServiceEntry* entry = malloc(sizeof(ServiceEntry));
+    if(entry) {
+        // Store hash for faster lookups
+        entry->name_hash = name_hash;
+        entry->name = strdup(service_name);
+        entry->impl = service_impl;
+        entry->next = registry->services;
+        registry->services = entry;
+        registry->service_count++;
+        result = true;
+    }
+    
+    // Add namespace and labels if provided
+    if(namespace) {
+        entry->namespace = strdup(namespace);
+    } else {
+        entry->namespace = strdup("default");
+    }
+    
+    // Add labels
+    entry->labels = NULL;
+    ServiceLabel* current_label = labels;
+    while(current_label) {
+        ServiceLabel* new_label = malloc(sizeof(ServiceLabel));
+        if(!new_label) {
+            // Handle allocation failure
+            continue;
+        }
+        
+        new_label->key = strdup(current_label->key);
+        new_label->value = strdup(current_label->value);
+        new_label->next = entry->labels;
+        entry->labels = new_label;
+        
+        current_label = current_label->next;
+    }
+    
+    entry->creation_timestamp = furi_get_tick();
+    
+    furi_mutex_release(registry->mutex);
+    return result;
+}
+
 // Optimize service lookup with early exit on empty list
 void* service_registry_get_service(ServiceRegistry* registry, const char* service_name) {
     furi_assert(registry);
@@ -175,6 +268,18 @@ void service_registry_unregister(ServiceRegistry* registry, const char* service_
             
             // Free resources
             free((void*)current->name);
+            free((void*)current->namespace);
+            
+            // Free labels
+            ServiceLabel* label = current->labels;
+            while(label) {
+                ServiceLabel* next_label = label->next;
+                free((void*)label->key);
+                free((void*)label->value);
+                free(label);
+                label = next_label;
+            }
+            
             free(current);
             
             registry->service_count--;
@@ -192,8 +297,34 @@ void service_registry_unregister(ServiceRegistry* registry, const char* service_
 typedef struct {
     const char* key;
     const char* value;
+    const char* namespace;
 } ServiceSelector;
 
+bool service_selector_matches(ServiceEntry* entry, const ServiceSelector* selector) {
+    if(!selector->key) return false;
+    
+    // Check namespace match first for early exit
+    if(selector->namespace && entry->namespace && 
+       strcmp(selector->namespace, entry->namespace) != 0) {
+        return false;
+    }
+    
+    // Check labels
+    ServiceLabel* label = entry->labels;
+    while(label) {
+        if(strcmp(label->key, selector->key) == 0) {
+            // If value is specified, check it too
+            if(!selector->value || strcmp(label->value, selector->value) == 0) {
+                return true;
+            }
+        }
+        label = label->next;
+    }
+    
+    return false;
+}
+
+// Improved service discovery with more Kubernetes-like selectors
 void* service_registry_get_with_selector(
     ServiceRegistry* registry, 
     const ServiceSelector* selectors, 
@@ -209,23 +340,33 @@ void* service_registry_get_with_selector(
     
     void* result = NULL;
     
+    // More sophisticated matching algorithm
+    ServiceEntry* best_match = NULL;
+    uint32_t best_match_score = 0;
+    
     furi_mutex_acquire(registry->mutex, FuriWaitForever);
     
-    // Simple implementation - just match the first selector for now
-    if(selector_count > 0) {
-        const ServiceSelector* selector = &selectors[0];
-        ServiceEntry* current = registry->services;
+    ServiceEntry* current = registry->services;
+    while(current) {
+        uint32_t match_score = 0;
         
-        while(current) {
-            // In a real implementation, services would have labels/annotations
-            // Here we just check if the name contains the key as a substring
-            if(strstr(current->name, selector->key) != NULL) {
-                result = current->impl;
-                break;
+        // Check each selector
+        for(size_t i = 0; i < selector_count; i++) {
+            if(service_selector_matches(current, &selectors[i])) {
+                match_score++;
             }
-            current = current->next;
         }
+        
+        // Keep the best match
+        if(match_score > best_match_score) {
+            best_match = current;
+            best_match_score = match_score;
+        }
+        
+        current = current->next;
     }
+    
+    result = best_match ? best_match->impl : NULL;
     
     furi_mutex_release(registry->mutex);
     
