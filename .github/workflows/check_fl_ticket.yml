@@ -1,0 +1,44 @@
+name: Check FL ticket in PR name
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited, reopened]
+  workflow_dispatch:
+
+jobs:
+  check_ticket:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Get PR title
+        id: pr_title
+        run: |
+          echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+          echo "title=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
+      
+      - name: Check for ticket number
+        id: check_fl
+        run: |
+          # Check if PR has "FL-NUMBER" format in the title
+          if echo "${{ steps.pr_title.outputs.title }}" | grep -E "FL-[0-9]+" &>/dev/null; then
+            echo "Contains FL ticket reference"
+            echo "has_ticket=true" >> $GITHUB_OUTPUT
+            echo "ticket=$(echo ${{ steps.pr_title.outputs.title }} | grep -o 'FL-[0-9]\+')" >> $GITHUB_OUTPUT
+          else
+            echo "No FL ticket reference found"
+            echo "has_ticket=false" >> $GITHUB_OUTPUT
+            # Allow PR to proceed without a ticket for now
+            exit 0
+          fi
+      
+      - name: Comment on PR if no ticket
+        if: ${{ steps.check_fl.outputs.has_ticket == 'false' }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'ℹ️ This PR does not have a Flipper ticket number in the title. Consider adding one in format "FL-XXXX: Your PR title"'
+            })
