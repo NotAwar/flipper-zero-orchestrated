@@ -1,13 +1,37 @@
-Flipper Pod Manifest: 1
-Name: test-services
-Namespace: system
-ContainerCount: 1
-
-# Ultra-minimal test container
-Container0: test-container
-Image0: Settings
-Memory0: 2048
-CPU0: 3
-Threads0: 1
-RestartOnCrash0: 1
-SystemPrivileges0: 0
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "test-pod",
+    "namespace": "default"
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "main",
+        "image": "apps/test_app",
+        "resources": {
+          "limits": {
+            "memory": "4K",
+            "cpu": 10
+          }
+        },
+        "args": "hello from manifest",
+        "securityContext": {
+          "privileged": false
+        }
+      },
+      {
+        "name": "logger",
+        "image": "apps/logger_app",
+        "resources": {
+          "limits": {
+            "memory": "2K",
+            "cpu": 5
+          }
+        }
+      }
+    ],
+    "restartPolicy": "OnFailure"
+  }
+}

@@ -1,11 +1,35 @@
-# Experimental repo, will be updated - ignore all documentation and readme for now
+# Flipper Zero Kubernetes-inspired Containerization (Experimental)
 
-# Flipper Zero Firmware
+> **NOTICE:** This is an experimental fork exploring containerization concepts for Flipper Zero.
+> This is NOT the official Flipper Zero firmware repository.
 
-- [Flipper Zero Official Website](https://flipperzero.one). A simple way to explain to your friends what Flipper Zero can do.
-- [Flipper Zero Firmware Update](https://flipperzero.one/update). Improvements for your dolphin: latest firmware releases, upgrade tools for PC and mobile devices.
-- [User Documentation](https://docs.flipper.net). Learn more about your dolphin: specs, usage guides, and anything you want to ask.
-- [Developer Documentation](https://developer.flipper.net/flipperzero/doxygen). Dive into the Flipper Zero Firmware source code: build system, firmware structure, and more.
+This project implements a lightweight containerization system for Flipper Zero, inspired by Kubernetes
+but designed specifically for highly constrained microcontroller environments.
+
+## Key Features
+
+- **Container Runtime**: Lightweight container lifecycle management
+- **Pod Manifests**: Declarative application deployment
+- **Service Registry**: Efficient service discovery
+- **Resource Limits**: Memory and CPU quota enforcement
+
+## Hardware Constraints
+
+This implementation takes into account Flipper Zero's limited resources:
+- ~256KB RAM
+- ARM Cortex-M4 @ 64MHz
+- Limited flash storage
+- Battery-powered operation
+
+## Getting Started
+
+See the [Containerization Documentation](/documentation/Containerization.md) for details
+on how to use this system.
+
+## Original Project
+
+This is based on the [official Flipper Zero firmware](https://github.com/flipperdevices/flipperzero-firmware).
+Please refer to the official repository for the latest stable firmware.
 
 # Contributing
 

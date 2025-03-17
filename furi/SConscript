@@ -1,33 +1,31 @@
 Import("env")
 
 env.Append(
-    LINT_SOURCES=[
-        Dir("."),
-    ],
     CPPPATH=[
         "#/furi",
-    ],
+        "#/furi/core",
+        "#/furi/containerization",
+    ]
 )
 
+# Create a copy of the environment for building the library
 libenv = env.Clone(FW_LIB_NAME="furi")
 libenv.ApplyLibFlags()
 
-sources = libenv.GlobRecursive("*.c")
+sources = []
 
+# Core sources
+sources += SConscript("core/SConscript")
+
+# Flipper sources
+sources += SConscript("flipper/SConscript") 
+
+# Containerization sources if they exist
+if Dir("containerization").exists():
+    sources += SConscript("containerization/SConscript") 
+
+# Create the library but let the parent environment handle installation
 lib = libenv.StaticLibrary("${FW_LIB_NAME}", sources)
-libenv.Install("${LIB_DIST_DIR}", lib)
 
-subdirs = [
-    "core",
-    "flipper",
-]
-
-# Add containerization if this is the base firmware
-if env["IS_BASE_FIRMWARE"]:
-    subdirs.append("containerization")
-
-libs = []
-for subdir in subdirs:
-    libs += SConscript(f"{subdir}/SConscript")
-
-Return("libs")
+# Return the library instead of installing it directly
+Return("lib")

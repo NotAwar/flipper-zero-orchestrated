@@ -33,10 +33,24 @@ class Main(App):
             nargs="+",
         )
         self.parser_format.set_defaults(func=self.format)
+        
+        # Add markdown linting subcommand
+        self.parser_markdown = self.subparsers.add_parser(
+            "markdown", help="Lint and fix markdown files"
+        )
+        self.parser_markdown.add_argument("--fix", action="store_true", help="Fix issues when possible")
+        self.parser_markdown.add_argument("--config", help="Path to markdownlint config file")
+        self.parser_markdown.add_argument("files", nargs="*", help="Files or directories to check")
+        self.parser_markdown.set_defaults(func=self.markdown_lint)
 
-        # Add markdown linting
+        # Include markdown by default
         self.parser.add_argument(
-            "--include-md", action="store_true", help="Include markdown files in linting"
+            "--include-md", action="store_true", help="Include markdown files in linting", default=True
+        )
+        
+        # Add containerization validation
+        self.parser.add_argument(
+            "--k8s", action="store_true", help="Validate containerization manifests"
         )
 
     @staticmethod
@@ -230,12 +244,128 @@ class Main(App):
         self.logger.info("Markdown lint passed")
         return 0
 
+    def markdown_lint(self):
+        """Run markdownlint on markdown files"""
+        config_path = self.args.config or os.path.join(self.project_dir, ".markdownlint.json")
+        if not os.path.exists(config_path):
+            self.logger.warning(f"Markdown lint config not found at {config_path}")
+            config_path = os.path.join(os.path.dirname(__file__), "default_markdownlint.json")
+            
+        files = self.args.files
+        if not files:
+            # Default to finding all .md files
+            files = []
+            for root, _, filenames in os.walk(self.project_dir):
+                for filename in filenames:
+                    if filename.lower().endswith('.md'):
+                        files.append(os.path.join(root, filename))
+        
+        if not files:
+            self.logger.info("No markdown files found")
+            return 0
+            
+        cmd = ["npx", "markdownlint-cli"]
+        if self.args.fix:
+            cmd.append("--fix")
+        cmd.extend(["--config", config_path])
+        cmd.extend(files)
+        
+        self.logger.info(f"Running markdownlint on {len(files)} files")
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            self.logger.error(f"Markdown lint failed: {result.stdout}")
+            return result.returncode
+        
+        self.logger.info("Markdown lint passed")
+        return 0
+
+    # Add containerization manifest validation
+    def validate_k8s_manifests(self):
+        """Validate Kubernetes-style manifests for syntax and best practices"""
+        import json
+        
+        manifests_dir = os.path.join(self.project_dir, "assets/resources/containerization")
+        if not os.path.exists(manifests_dir):
+            self.logger.info("No containerization manifests directory found")
+            return 0
+            
+        manifest_files = [f for f in os.listdir(manifests_dir) if f.endswith('.json')]
+        if not manifest_files:
+            self.logger.info("No manifest files found")
+            return 0
+            
+        errors = 0
+        for manifest_file in manifest_files:
+            try:
+                with open(os.path.join(manifests_dir, manifest_file)) as f:
+                    manifest = json.load(f)
+                    
+                # Validate required fields
+                if "apiVersion" not in manifest:
+                    self.logger.error(f"{manifest_file}: Missing apiVersion")
+                    errors += 1
+                if "kind" not in manifest:
+                    self.logger.error(f"{manifest_file}: Missing kind")
+                    errors += 1
+                if "metadata" not in manifest:
+                    self.logger.error(f"{manifest_file}: Missing metadata")
+                    errors += 1
+                elif "name" not in manifest["metadata"]:
+                    self.logger.error(f"{manifest_file}: Missing metadata.name")
+                    errors += 1
+                    
+                # Validate pod spec
+                if manifest.get("kind") == "Pod" and "spec" in manifest:
+                    if "containers" not in manifest["spec"]:
+                        self.logger.error(f"{manifest_file}: Missing spec.containers")
+                        errors += 1
+                    elif not manifest["spec"]["containers"]:
+                        self.logger.error(f"{manifest_file}: Empty containers list")
+                        errors += 1
+                    
+                    # Check each container
+                    for i, container in enumerate(manifest["spec"].get("containers", [])):
+                        if "name" not in container:
+                            self.logger.error(f"{manifest_file}: Container {i} missing name")
+                            errors += 1
+                        if "image" not in container:
+                            self.logger.error(f"{manifest_file}: Container {i} missing image")
+                            errors += 1
+                            
+                # Check resource limits - this is especially important for Flipper Zero
+                for i, container in enumerate(manifest.get("spec", {}).get("containers", [])):
+                    if "resources" not in container:
+                        self.logger.warning(f"{manifest_file}: Container {i} ({container.get('name', 'unnamed')}) has no resource limits")
+                    elif "limits" not in container["resources"]:
+                        self.logger.warning(f"{manifest_file}: Container {i} ({container.get('name', 'unnamed')}) has no resource limits")
+                        
+            except json.JSONDecodeError as e:
+                self.logger.error(f"{manifest_file}: Invalid JSON: {e}")
+                errors += 1
+                
+        if errors:
+            self.logger.error(f"Found {errors} errors in containerization manifests")
+            return errors
+        else:
+            self.logger.info("All containerization manifests are valid")
+            return 0
+        
     def main(self):
-        # Add markdown linting
-        if self.args.include_md:
-            md_result = self.lint_markdown_files()
-            if md_result != 0:
-                return md_result
+        if hasattr(self.args, "func"):
+            result = self.args.func()
+            
+            # Always validate K8s manifests if --k8s is specified
+            if getattr(self.args, "k8s", False):
+                k8s_result = self.validate_k8s_manifests()
+                if k8s_result != 0:
+                    result = k8s_result
+                    
+            return result
+        else:
+            self.parser.print_help()
+            return 0
+
 
 if __name__ == "__main__":
     Main()()

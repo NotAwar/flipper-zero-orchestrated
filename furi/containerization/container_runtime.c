@@ -13,12 +13,14 @@
 #define TAG "ContainerRT"
 
 // Reduced maximum number of containers to conserve memory
-#define MAX_CONTAINERS 8
+#define MAX_CONTAINERS 5  // Reduced from 8 to save memory
+#define CONTAINER_POOL_SIZE 3  // Pre-allocated container handles
 
 typedef struct Container {
     ContainerConfig config;
     ContainerStatus status;
     void* app_handle;
+    uint32_t last_health_check; // Timestamps to avoid checking too frequently
 } Container;
 
 struct ContainerRuntime {
@@ -29,10 +31,19 @@ struct ContainerRuntime {
     uint8_t active_container_count; // Track running containers separately
     bool running;
     ContainerHandle* recycled_container_pool; // Memory pool for container handles
+    ContainerHandle container_handle_pool[CONTAINER_POOL_SIZE]; // Static allocation
+    uint8_t next_free_handle_index;
 };
 
-// Ultra-minimal container health checker - just checks if the underlying app is still running
+// Memory-efficient container health checker - check less frequently
 static void container_check_health(Container* container) {
+    // Only check every 5 seconds to reduce CPU usage
+    uint32_t current_time = furi_get_tick();
+    if(current_time - container->last_health_check < 5000) {
+        return;
+    }
+    container->last_health_check = current_time;
+    
     if(!container || container->status.state != ContainerStateRunning) {
         return;
     }
@@ -198,6 +209,25 @@ static Container* container_find_free_slot(ContainerRuntime* runtime) {
     return NULL;
 }
 
+// Preflight check for resources - fail early if not enough memory
+bool container_runtime_can_start_container(ContainerRuntime* runtime, const ContainerConfig* config) {
+    // Calculate system's free memory - simplified example
+    size_t free_mem = furi_get_free_heap_size();
+    size_t required_mem = config->resource_limits.max_memory;
+    
+    // Add 20% overhead for container management
+    required_mem = required_mem * 1.2;
+    
+    // Check if there's enough memory
+    if(free_mem < required_mem) {
+        FURI_LOG_W(TAG, "Not enough memory to start container %s", config->name);
+        FURI_LOG_W(TAG, "Required: %d, Available: %d", required_mem, free_mem);
+        return false;
+    }
+    
+    return true;
+}
+
 Container* container_create(ContainerRuntime* runtime, const ContainerConfig* config) {
     furi_assert(runtime);
     furi_assert(config);
@@ -220,6 +250,12 @@ Container* container_create(ContainerRuntime* runtime, const ContainerConfig* co
     // Check if we've reached max containers
     if(runtime->container_count >= MAX_CONTAINERS) {
         FURI_LOG_E(TAG, "Max containers reached");
+        furi_mutex_release(runtime->mutex);
+        return NULL;
+    }
+    
+    // Check available resources before proceeding
+    if(!container_runtime_can_start_container(runtime, config)) {
         furi_mutex_release(runtime->mutex);
         return NULL;
     }
@@ -392,7 +428,7 @@ uint16_t container_runtime_get_running_count(ContainerRuntime* runtime) {
     return count;
 }
 
-// Memory optimization - reuse container objects where possible
+// Optimize memory allocation with static pool
 ContainerHandle* container_runtime_allocate_handle(ContainerRuntime* runtime) {
     furi_assert(runtime);
     
@@ -401,10 +437,16 @@ ContainerHandle* container_runtime_allocate_handle(ContainerRuntime* runtime) {
     furi_mutex_acquire(runtime->mutex, FuriWaitForever);
     
     if(runtime->recycled_container_pool) {
+        // Reuse from linked list if available
         handle = runtime->recycled_container_pool;
         runtime->recycled_container_pool = handle->next;
         memset(handle, 0, sizeof(ContainerHandle));
+    } else if(runtime->next_free_handle_index < CONTAINER_POOL_SIZE) {
+        // Use from static pool if available
+        handle = &runtime->container_handle_pool[runtime->next_free_handle_index++];
+        memset(handle, 0, sizeof(ContainerHandle));
     } else {
+        // Fall back to malloc only if necessary
         handle = malloc(sizeof(ContainerHandle));
         if(handle) {
             memset(handle, 0, sizeof(ContainerHandle));
