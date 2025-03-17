@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "core/check.h"
 
-// Import log functions rather than defining them here
+// Include log.h instead of redefining macros
 #include "core/log.h"
 
 // Define function prototypes needed by applications

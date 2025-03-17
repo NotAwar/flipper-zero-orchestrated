@@ -133,10 +133,21 @@ bool furi_log_level_from_string(const char* str, FuriLogLevel* level);
  * @param      format  The format
  * @param      ...     VA Args
  */
+#ifndef FURI_LOG_E
 #define FURI_LOG_E(tag, format, ...) printf("[E][%s] " format "\r\n", tag, ##__VA_ARGS__)
+#endif
+
+#ifndef FURI_LOG_W
 #define FURI_LOG_W(tag, format, ...) printf("[W][%s] " format "\r\n", tag, ##__VA_ARGS__)
+#endif
+
+#ifndef FURI_LOG_I
 #define FURI_LOG_I(tag, format, ...) printf("[I][%s] " format "\r\n", tag, ##__VA_ARGS__)
+#endif
+
+#ifndef FURI_LOG_D
 #define FURI_LOG_D(tag, format, ...) printf("[D][%s] " format "\r\n", tag, ##__VA_ARGS__)
+#endif
 
 #ifdef __cplusplus
 }
